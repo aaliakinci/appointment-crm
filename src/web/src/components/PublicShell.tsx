@@ -7,13 +7,14 @@ import type { PropsWithChildren } from "react";
 
 interface PublicShellProps extends PropsWithChildren {
   readonly id: string;
-  readonly activePath: "/" | "/login";
+  readonly activePath: "/" | "/login" | "/account";
+  readonly secondaryPath?: "/login" | "/account";
   readonly brandLabel: string;
   readonly statusLabel: string;
   readonly loginLabel: string;
   readonly skipToContentLabel: string;
   readonly portfolioNotice: string;
-  readonly onNavigate: (path: "/" | "/login") => void;
+  readonly onNavigate: (path: "/" | "/login" | "/account") => void;
 }
 
 export function PublicShell({
@@ -26,6 +27,7 @@ export function PublicShell({
   portfolioNotice,
   skipToContentLabel,
   statusLabel,
+  secondaryPath = "/login",
 }: PublicShellProps) {
   const mainId = `${id}.main`;
 
@@ -69,8 +71,8 @@ export function PublicShell({
               </Button>
               <Button
                 id={`${id}.loginLink`}
-                variant={activePath === "/login" ? "contained" : "text"}
-                onClick={() => onNavigate("/login")}
+                variant={activePath === secondaryPath ? "contained" : "text"}
+                onClick={() => onNavigate(secondaryPath)}
               >
                 {loginLabel}
               </Button>

@@ -8,7 +8,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { AppErrorBoundary } from "./components";
 import { appI18nOptions } from "./i18n";
-import { appStore } from "./state";
+import { appStore, AuthProvider } from "./state";
 import "./styles.css";
 import { createAppointmentCrmTheme } from "./theme";
 
@@ -25,7 +25,9 @@ createRoot(rootElement).render(
         <LilyStoreProvider store={appStore}>
           <LilyI18nDirectionProvider createTheme={createAppointmentCrmTheme}>
             <CssBaseline />
-            <App />
+            <AuthProvider>
+              <App />
+            </AuthProvider>
           </LilyI18nDirectionProvider>
         </LilyStoreProvider>
       </LilyI18nProvider>

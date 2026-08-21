@@ -21,6 +21,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Postgres"] = ConnectionString,
+                ["DemoSeed:Enabled"] = "true",
+                ["DemoSeed:Password"] = IdentitySecurityTests.DemoPassword,
+                ["Identity:RequireSecureCookie"] = "true",
             });
         });
     }

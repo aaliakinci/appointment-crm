@@ -5,10 +5,11 @@ export const appMessagesTrTr = {
   navigation: {
     status: "Sistem durumu",
     login: "Giriş yap",
+    account: "Hesabım",
   },
   shell: {
     skipToContent: "Ana içeriğe geç",
-    portfolioNotice: "Faz 1 teknik iskeleti",
+    portfolioNotice: "Güvenli randevu operasyonları",
   },
   status: {
     eyebrow: "Platform temeli",
@@ -26,10 +27,33 @@ export const appMessagesTrTr = {
   },
   login: {
     eyebrow: "Kimlik doğrulama",
-    title: "Giriş akışı Faz 2'de geliyor",
+    title: "İşletme alanınıza giriş yapın",
     description:
-      "Kimlik doğrulama öncesi uygulama kabuğu ve route sınırı hazır. Credentials ve güvenli session davranışı Faz 1'de taklit edilmiyor.",
-    back: "Sistem durumunu görüntüle",
+      "Hesap bilgilerinizi kullanın. Birden fazla işletmeye üyeyseniz doğrulama sonrasında aktif işletmeyi seçebilirsiniz.",
+    email: "E-posta adresi",
+    password: "Parola",
+    tenant: "İşletme",
+    submit: "Devam et",
+    submitting: "Giriş yapılıyor…",
+    validation: "Geçerli bir e-posta adresi ve parola girin.",
+    tenantRequired: "Devam etmek için bir işletme seçin.",
+    error: "Hesap bilgileri geçersiz veya hesap kullanılamıyor.",
+    securityNotice:
+      "Access token yalnızca uygulama belleğinde tutulur. Döndürülen refresh credential HttpOnly cookie içindedir ve browser storage alanlarına açılmaz.",
+  },
+  auth: {
+    initializing: "Güvenli oturum geri yükleniyor…",
+  },
+  account: {
+    eyebrow: "Güvenli oturum",
+    role: "Rol",
+    tenant: "Aktif işletme",
+    switchTenant: "İşletmeyi değiştir",
+    logout: "Çıkış yap",
+    revokeAll: "Tüm oturumları kapat",
+    tenantLoadError: "Kullanılabilir işletmeler yüklenemedi.",
+    switchError: "İşletme değiştirilemedi.",
+    logoutError: "Oturum güvenli biçimde kapatılamadı. Lütfen yeniden deneyin.",
   },
   error: {
     title: "Uygulama görüntülenemedi",

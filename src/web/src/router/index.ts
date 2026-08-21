@@ -1,1 +1,1 @@
-export { APP_ROUTES, APP_ROUTER_STATE, appGuardRegistry } from "./routes";
+export { APP_ROUTES, appGuardRegistry, type AppRouterState } from "./routes";

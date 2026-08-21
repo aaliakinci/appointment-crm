@@ -2,27 +2,26 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using AppointmentCrm.Contracts;
+using AppointmentCrm.Infrastructure;
 using AppointmentCrm.Infrastructure.Persistence;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AppointmentCrm.IntegrationTests;
 
-public sealed class PhaseOneApiTests : IClassFixture<ApiFactory>, IAsyncLifetime
+public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifetime
 {
     private readonly ApiFactory _factory;
 
-    public PhaseOneApiTests(ApiFactory factory)
+    public ApiFoundationTests(ApiFactory factory)
     {
         _factory = factory;
     }
 
     public async Task InitializeAsync()
     {
-        var options = new DbContextOptionsBuilder<AppointmentCrmDbContext>()
-            .UseNpgsql(_factory.ConnectionString)
-            .Options;
-        await using var dbContext = new AppointmentCrmDbContext(options);
-        await dbContext.Database.MigrateAsync();
+        await MigrationRunner.RunAsync(_factory.Services);
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -69,6 +68,9 @@ public sealed class PhaseOneApiTests : IClassFixture<ApiFactory>, IAsyncLifetime
         var document = await client.GetStringAsync("/openapi/v1.json");
 
         Assert.Contains("/api/v1/system/status", document, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/auth/login", document, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/auth/refresh", document, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/memberships", document, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -94,5 +96,13 @@ public sealed class PhaseOneApiTests : IClassFixture<ApiFactory>, IAsyncLifetime
         var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
 
         Assert.Contains(appliedMigrations, migration => migration.EndsWith("_InitialCreate"));
+    }
+
+    [Fact]
+    public void Testing_UsesEphemeralDataProtectionKeys()
+    {
+        var provider = _factory.Services.GetRequiredService<IDataProtectionProvider>();
+
+        Assert.IsType<EphemeralDataProtectionProvider>(provider);
     }
 }

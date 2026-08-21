@@ -17,7 +17,7 @@ describe("PublicShell", () => {
           statusLabel="Status"
           loginLabel="Login"
           skipToContentLabel="Skip"
-          portfolioNotice="Phase 1"
+          portfolioNotice="Secure appointment operations"
           onNavigate={() => undefined}
         >
           <p>Ready</p>

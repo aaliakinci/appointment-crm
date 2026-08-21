@@ -3,12 +3,13 @@ import { Box } from "@lily_platform/lily_ui/ui/atoms/Box";
 import { Button } from "@lily_platform/lily_ui/ui/atoms/Button";
 import { Stack } from "@lily_platform/lily_ui/ui/atoms/Stack";
 import { Typography } from "@lily_platform/lily_ui/ui/atoms/Typography";
+import { useLilyNavigate } from "@lily_platform/lily_ui/router";
 import { useEffect, useState } from "react";
 
 import { getReadiness, type HealthReport } from "@/api";
 import { PublicShell } from "@/components";
 import { useAppTranslation } from "@/i18n";
-import { useLilyNavigate } from "@lily_platform/lily_ui/router";
+import { useAuth } from "@/state";
 
 interface SystemStatusPageProps {
   readonly id: string;
@@ -30,6 +31,7 @@ async function fetchReadinessState(signal?: AbortSignal): Promise<LoadState> {
 export function SystemStatusPage({ id }: SystemStatusPageProps) {
   const navigate = useLilyNavigate();
   const { t } = useAppTranslation();
+  const { session } = useAuth();
   const [loadState, setLoadState] = useState<LoadState>({ kind: "loading" });
 
   useEffect(() => {
@@ -52,7 +54,8 @@ export function SystemStatusPage({ id }: SystemStatusPageProps) {
       activePath="/"
       brandLabel={t("app:brand")}
       statusLabel={t("app:navigation.status")}
-      loginLabel={t("app:navigation.login")}
+      loginLabel={session ? t("app:navigation.account") : t("app:navigation.login")}
+      secondaryPath={session ? "/account" : "/login"}
       skipToContentLabel={t("app:shell.skipToContent")}
       portfolioNotice={t("app:shell.portfolioNotice")}
       onNavigate={(path) => {

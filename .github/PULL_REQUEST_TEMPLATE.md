@@ -8,7 +8,7 @@
 
 ## Checklist
 
-- [ ] The change stays within the current roadmap phase and v1 scope.
+- [ ] The change stays within the agreed issue and v1 product scope.
 - [ ] Tenant and permission boundaries were considered.
 - [ ] Tests were added or updated in proportion to risk.
 - [ ] Migrations, API contracts, and documentation were updated where applicable.

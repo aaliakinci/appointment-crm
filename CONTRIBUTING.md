@@ -1,6 +1,6 @@
 # Contributing
 
-The repository is currently in bootstrap status. Contributions should preserve the architectural decisions in `docs/decisions` and the scope boundary in `ROADMAP.md`.
+Changes should preserve the established modular-monolith boundaries, tenant-isolation model, and v1 product scope. Construction notes and delivery reports are maintainer-local material and are not part of the published repository.
 
 ## Workflow
 
@@ -14,9 +14,9 @@ Direct pushes to `main` are not the intended workflow after branch protection is
 
 ## Dependency policy
 
-Do not add or install any direct npm package other than the exact approved `@lily_platform/lily_ui` version. Transitive packages are owned by Lily UI's lockfile resolution and must not be imported as application-owned APIs unless Lily UI explicitly re-exports them.
+Keep direct npm dependencies limited to the exact versions already approved in `src/web/package.json`: Lily UI, its React peer runtime, and the minimum compiler/build/quality/test toolchain. Application code must use Lily UI's public APIs for routing, state, HTTP, i18n, themes, and UI primitives; it must not import Lily's transitive packages as application-owned APIs.
 
-Any proposed change to this rule requires an ADR and explicit repository-owner approval. See `docs/dependency-policy.md`.
+Any proposed change to this rule requires explicit repository-owner approval and a rationale in the pull request.
 
 NuGet and infrastructure dependencies must also be minimal, pinned through the appropriate lock/manifest mechanism, and justified by an application or test requirement.
 
@@ -29,4 +29,4 @@ NuGet and infrastructure dependencies must also be minimal, pinned through the a
 
 ## Definition of done
 
-The shared feature-level definition of done is maintained in `ROADMAP.md`. CI checks will become mandatory in Phase 1.
+A change is complete when its behavior, tests, migrations, API contracts, user-visible states, and operational impact have been updated in proportion to risk. The `Backend`, `Frontend`, and `Containers` CI checks must pass before merge.

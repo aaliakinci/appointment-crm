@@ -41,6 +41,9 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Postgres: ${ConnectionStrings__Postgres:-Host=postgres;Port=5432;Database=appointment_crm;Username=appointment_crm;Password=change-me-local-only}
+      DemoSeed__Enabled: ${APPOINTMENTCRM_DEMO_SEED_ENABLED:-true}
+      DemoSeed__Password: ${APPOINTMENTCRM_DEMO_PASSWORD:-Demo-local-2026!}
+      DataProtection__UseEphemeralKeys: "true"
       Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Critical
     command: ["--migrate"]
     depends_on:
@@ -58,6 +61,8 @@ services:
       ConnectionStrings__Postgres: ${ConnectionStrings__Postgres:-Host=postgres;Port=5432;Database=appointment_crm;Username=appointment_crm;Password=change-me-local-only}
       ConnectionStrings__Redis: redis:6379
       Cors__AllowedOrigins__0: http://localhost:${APPOINTMENTCRM_WEB_PORT:-5173}
+      Identity__RequireSecureCookie: ${APPOINTMENTCRM_SECURE_COOKIE:-false}
+      DataProtection__UseEphemeralKeys: "true"
     ports:
       - "${APPOINTMENTCRM_API_PORT:-8080}:8080"
     depends_on:
