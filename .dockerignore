@@ -1,0 +1,15 @@
+.git
+.github
+.agents
+.codex
+.env
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/coverage
+**/TestResults
+artifacts
+docs
+README.md
+ROADMAP.md

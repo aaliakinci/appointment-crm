@@ -1,0 +1,32 @@
+import { ThemeProvider } from "@lily_platform/lily_ui/ui/themes";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vitest";
+
+import { createAppointmentCrmTheme } from "@/theme";
+
+import { PublicShell } from "./PublicShell";
+
+describe("PublicShell", () => {
+  it("renders stable shell and main-content identifiers through Lily UI", () => {
+    const markup = renderToStaticMarkup(
+      <ThemeProvider theme={createAppointmentCrmTheme("ltr")}>
+        <PublicShell
+          id="test-shell"
+          activePath="/"
+          brandLabel="Appointment CRM"
+          statusLabel="Status"
+          loginLabel="Login"
+          skipToContentLabel="Skip"
+          portfolioNotice="Phase 1"
+          onNavigate={() => undefined}
+        >
+          <p>Ready</p>
+        </PublicShell>
+      </ThemeProvider>,
+    );
+
+    expect(markup).toContain('id="test-shell"');
+    expect(markup).toContain('id="test-shell.main"');
+    expect(markup).toContain("Appointment CRM");
+  });
+});

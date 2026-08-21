@@ -1,0 +1,45 @@
+name: Bug report
+description: Report a reproducible defect using synthetic data.
+title: "fix: "
+labels:
+  - "type:bug"
+body:
+  - type: markdown
+    attributes:
+      value: Do not include secrets, tokens, or real customer data. Use a private security advisory for vulnerabilities.
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Observed outcome
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected outcome
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide minimal deterministic steps and synthetic fixtures.
+    validations:
+      required: true
+  - type: dropdown
+    id: tenant-impact
+    attributes:
+      label: Tenant boundary impact
+      options:
+        - No known tenant impact
+        - Tenant-scoped behavior affected
+        - Possible cross-tenant exposure
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Validation evidence
+      description: Include relevant test names, sanitized logs, or screenshots.

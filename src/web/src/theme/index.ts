@@ -1,0 +1,1 @@
+export { createAppointmentCrmTheme } from "./createAppointmentCrmTheme";

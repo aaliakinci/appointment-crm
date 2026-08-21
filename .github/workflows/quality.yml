@@ -1,0 +1,74 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.4-alpine3.24
+        env:
+          POSTGRES_DB: appointment_crm
+          POSTGRES_USER: appointment_crm
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U appointment_crm -d appointment_crm"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      APPOINTMENTCRM_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=appointment_crm;Username=appointment_crm;Password=ci-only-password
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - run: dotnet restore AppointmentCrm.slnx --locked-mode --disable-parallel --verbosity minimal -m:1
+      - run: dotnet format AppointmentCrm.slnx --verify-no-changes --no-restore --verbosity minimal
+      - run: dotnet build AppointmentCrm.slnx --configuration Release --no-restore --verbosity minimal -m:1
+      - run: dotnet test tests/AppointmentCrm.UnitTests/AppointmentCrm.UnitTests.csproj --configuration Release --no-build --no-restore --verbosity minimal -m:1
+      - run: dotnet test tests/AppointmentCrm.IntegrationTests/AppointmentCrm.IntegrationTests.csproj --configuration Release --no-build --no-restore --verbosity minimal -m:1
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: src/web/.nvmrc
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test -- --run
+      - run: npm run build
+
+  containers:
+    name: Containers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: docker compose config --quiet
+      - run: docker build --target quality --file deploy/web/Dockerfile .
+      - run: docker compose build api web

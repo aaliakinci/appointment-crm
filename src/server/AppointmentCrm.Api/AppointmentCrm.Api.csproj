@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="../AppointmentCrm.Application/AppointmentCrm.Application.csproj" />
+    <ProjectReference Include="../AppointmentCrm.Contracts/AppointmentCrm.Contracts.csproj" />
+    <ProjectReference Include="../AppointmentCrm.Infrastructure/AppointmentCrm.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AppointmentCrm.UnitTests" />
+  </ItemGroup>
+</Project>

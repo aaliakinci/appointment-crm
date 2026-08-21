@@ -1,0 +1,46 @@
+name: Feature request
+description: Propose a scoped product or technical outcome.
+title: "feat: "
+labels:
+  - "type:feature"
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the user or operational problem, not only a preferred implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What observable result should be delivered?
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Roadmap scope
+      options:
+        - P0 release blocker
+        - P1 portfolio v1
+        - P2 v1.1 candidate
+        - Outside current roadmap
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance evidence
+      description: List objective acceptance scenarios or tests.
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Boundaries considered
+      options:
+        - label: Tenant isolation and permissions were considered.
+        - label: Time, concurrency, migration, and audit effects were considered where relevant.
+        - label: The request does not silently introduce a new npm dependency.

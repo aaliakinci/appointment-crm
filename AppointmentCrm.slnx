@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/server/">
+    <Project Path="src/server/AppointmentCrm.Api/AppointmentCrm.Api.csproj" />
+    <Project Path="src/server/AppointmentCrm.Application/AppointmentCrm.Application.csproj" />
+    <Project Path="src/server/AppointmentCrm.Contracts/AppointmentCrm.Contracts.csproj" />
+    <Project Path="src/server/AppointmentCrm.Domain/AppointmentCrm.Domain.csproj" />
+    <Project Path="src/server/AppointmentCrm.Infrastructure/AppointmentCrm.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AppointmentCrm.IntegrationTests/AppointmentCrm.IntegrationTests.csproj" />
+    <Project Path="tests/AppointmentCrm.UnitTests/AppointmentCrm.UnitTests.csproj" />
+  </Folder>
+</Solution>
