@@ -1,10 +1,9 @@
+using AppointmentCrm.Api.Errors;
 using AppointmentCrm.Application.Identity;
 using AppointmentCrm.Contracts;
 using AppointmentCrm.Domain.Identity;
-using AppointmentCrm.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.WebUtilities;
 
 namespace AppointmentCrm.Api.Identity;
 
@@ -61,28 +60,22 @@ public sealed class MembershipsController : ControllerBase
     {
         if (!TenantRoles.IsDefined(request.Role))
         {
-            return ValidationProblem(new ValidationProblemDetails(
+            return ApiProblemResult.CreateValidation(
+                HttpContext,
                 new Dictionary<string, string[]>
                 {
                     [nameof(request.Role)] = ["Role is not valid."],
-                }));
+                });
         }
 
-        try
-        {
-            MembershipSummary? membership = await _membershipService.UpdateAsync(
-                membershipId,
-                request.Role,
-                request.IsActive,
-                cancellationToken);
-            return membership is null
-                ? NotFound()
-                : Ok(ToResponse(membership));
-        }
-        catch (MembershipConflictException exception)
-        {
-            return ApiProblem(StatusCodes.Status409Conflict, exception.Message);
-        }
+        MembershipSummary? membership = await _membershipService.UpdateAsync(
+            membershipId,
+            request.Role,
+            request.IsActive,
+            cancellationToken);
+        return membership is null
+            ? NotFound()
+            : Ok(ToResponse(membership));
     }
 
     [HttpDelete("{membershipId:guid}")]
@@ -91,17 +84,10 @@ public sealed class MembershipsController : ControllerBase
         Guid membershipId,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            bool archived = await _membershipService.ArchiveAsync(
-                membershipId,
-                cancellationToken);
-            return archived ? NoContent() : NotFound();
-        }
-        catch (MembershipConflictException exception)
-        {
-            return ApiProblem(StatusCodes.Status409Conflict, exception.Message);
-        }
+        bool archived = await _membershipService.ArchiveAsync(
+            membershipId,
+            cancellationToken);
+        return archived ? NoContent() : NotFound();
     }
 
     private static MembershipResponse ToResponse(MembershipSummary membership) =>
@@ -114,18 +100,4 @@ public sealed class MembershipsController : ControllerBase
             membership.IsActive,
             membership.UpdatedAtUtc);
 
-    private ObjectResult ApiProblem(int status, string detail)
-    {
-        var problem = new ProblemDetails
-        {
-            Status = status,
-            Title = ReasonPhrases.GetReasonPhrase(status),
-            Detail = detail,
-        };
-        problem.Extensions["traceId"] = HttpContext.TraceIdentifier;
-
-        var result = new ObjectResult(problem) { StatusCode = status };
-        result.ContentTypes.Add("application/problem+json");
-        return result;
-    }
 }

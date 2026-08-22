@@ -61,14 +61,22 @@ internal sealed class ServiceCatalogService(
     {
         await EnsureTenantCurrencyAsync(input.Currency, cancellationToken);
         var now = timeProvider.GetUtcNow();
-        ServiceOffering service = ServiceOffering.Create(
-            Guid.NewGuid(),
-            tenantContext.TenantId,
-            input.Name,
-            input.DurationMinutes,
-            input.Price,
-            input.Currency,
-            now);
+        ServiceOffering service;
+        try
+        {
+            service = ServiceOffering.Create(
+                Guid.NewGuid(),
+                tenantContext.TenantId,
+                input.Name,
+                input.DurationMinutes,
+                input.Price,
+                input.Currency,
+                now);
+        }
+        catch (ArgumentException exception)
+        {
+            throw ToValidationException(exception);
+        }
         await EnsureNameIsUniqueAsync(service, null, cancellationToken);
 
         dbContext.Services.Add(service);
@@ -91,12 +99,19 @@ internal sealed class ServiceCatalogService(
         }
 
         await EnsureTenantCurrencyAsync(input.Currency, cancellationToken);
-        service.Update(
-            input.Name,
-            input.DurationMinutes,
-            input.Price,
-            input.Currency,
-            timeProvider.GetUtcNow());
+        try
+        {
+            service.Update(
+                input.Name,
+                input.DurationMinutes,
+                input.Price,
+                input.Currency,
+                timeProvider.GetUtcNow());
+        }
+        catch (ArgumentException exception)
+        {
+            throw ToValidationException(exception);
+        }
         await EnsureNameIsUniqueAsync(service, service.Id, cancellationToken);
         await SaveAsync(cancellationToken);
         return ToSummary(service);
@@ -134,13 +149,22 @@ internal sealed class ServiceCatalogService(
         string currency,
         CancellationToken cancellationToken)
     {
-        string normalizedCurrency = ServiceOffering.NormalizeCurrency(currency);
+        string normalizedCurrency;
+        try
+        {
+            normalizedCurrency = ServiceOffering.NormalizeCurrency(currency);
+        }
+        catch (ArgumentException exception)
+        {
+            throw ApplicationValidationException.FromArgument(exception, "currency");
+        }
         string tenantCurrency = await dbContext.Tenants
             .Select(tenant => tenant.Currency)
             .SingleAsync(cancellationToken);
         if (!string.Equals(normalizedCurrency, tenantCurrency, StringComparison.Ordinal))
         {
-            throw new MasterDataConflictException(
+            throw new ApplicationConflictException(
+                ServiceErrorCodes.CurrencyMismatch,
                 $"Service currency must match the tenant currency '{tenantCurrency}'.");
         }
     }
@@ -155,7 +179,8 @@ internal sealed class ServiceCatalogService(
                 && candidate.NormalizedName == service.NormalizedName,
             cancellationToken))
         {
-            throw new MasterDataConflictException(
+            throw new ApplicationConflictException(
+                ServiceErrorCodes.NameConflict,
                 "A service with the same name already exists in this tenant.");
         }
     }
@@ -170,9 +195,20 @@ internal sealed class ServiceCatalogService(
             exception,
             "ux_services_tenant_name"))
         {
-            throw new MasterDataConflictException(
-                "A service with the same name already exists in this tenant.");
+            throw new ApplicationConflictException(
+                ServiceErrorCodes.NameConflict,
+                "A service with the same name already exists in this tenant.",
+                exception);
         }
+    }
+
+    private static ApplicationValidationException ToValidationException(
+        ArgumentException exception)
+    {
+        string? field = string.Equals(exception.ParamName, "value", StringComparison.Ordinal)
+            ? "currency"
+            : exception.ParamName;
+        return ApplicationValidationException.FromArgument(exception, field);
     }
 
     private static IQueryable<ServiceOffering> Order(

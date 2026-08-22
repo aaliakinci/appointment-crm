@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AppointmentCrm.Contracts;
 using AppointmentCrm.Infrastructure;
 
@@ -23,14 +24,19 @@ public sealed class LoginRateLimitTests : IClassFixture<ApiFactory>, IAsyncLifet
     {
         using HttpClient client = _factory.CreateClient();
         HttpStatusCode lastStatus = HttpStatusCode.OK;
+        string? lastBody = null;
         for (int attempt = 0; attempt < 31; attempt++)
         {
             using HttpResponseMessage response = await client.PostAsJsonAsync(
                 "/api/v1/auth/login",
                 new LoginRequest("missing@demo.local", "invalid-password", null));
             lastStatus = response.StatusCode;
+            lastBody = await response.Content.ReadAsStringAsync();
         }
 
         Assert.Equal(HttpStatusCode.TooManyRequests, lastStatus);
+        using JsonDocument problem = JsonDocument.Parse(lastBody!);
+        Assert.Equal("common.rate_limited", problem.RootElement.GetProperty("code").GetString());
+        Assert.True(problem.RootElement.TryGetProperty("traceId", out _));
     }
 }

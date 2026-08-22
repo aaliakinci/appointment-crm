@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using AppointmentCrm.Application.Tenancy;
 using AppointmentCrm.Contracts;
 using AppointmentCrm.Infrastructure;
@@ -59,6 +60,14 @@ public sealed class MasterDataTests : IClassFixture<ApiFactory>, IAsyncLifetime
         Assert.Equal("Zeynep Kaya", created.Name);
         Assert.Equal("First visit", created.Notes);
 
+        using HttpResponseMessage invalidEmailResponse = await client.SendAsync(AuthorizedWrite(
+            HttpMethod.Post,
+            "/api/v1/customers",
+            accessToken,
+            input with { Name = "Invalid email", Email = "not-an-email" }));
+        Assert.Equal(HttpStatusCode.BadRequest, invalidEmailResponse.StatusCode);
+        await AssertProblemCodeAsync(invalidEmailResponse, "common.validation_failed");
+
         using HttpResponseMessage searchResponse = await client.SendAsync(Authorized(
             HttpMethod.Get,
             "/api/v1/customers?search=555111&pageSize=1",
@@ -77,6 +86,7 @@ public sealed class MasterDataTests : IClassFixture<ApiFactory>, IAsyncLifetime
             accessToken,
             input with { Name = "Duplicate", Email = "zeynep.kaya@example.test" }));
         Assert.Equal(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
+        await AssertProblemCodeAsync(duplicateResponse, "customers.email_conflict");
 
         using HttpResponseMessage archiveResponse = await client.SendAsync(AuthorizedWrite(
             HttpMethod.Delete,
@@ -115,6 +125,7 @@ public sealed class MasterDataTests : IClassFixture<ApiFactory>, IAsyncLifetime
             accessToken,
             new CreateServiceRequest("Color consultation", 45, 900m, "EUR")));
         Assert.Equal(HttpStatusCode.Conflict, currencyConflict.StatusCode);
+        await AssertProblemCodeAsync(currencyConflict, "services.currency_mismatch");
 
         using HttpResponseMessage createServiceResponse = await client.SendAsync(AuthorizedWrite(
             HttpMethod.Post,
@@ -144,6 +155,7 @@ public sealed class MasterDataTests : IClassFixture<ApiFactory>, IAsyncLifetime
                 null,
                 [service.Id])));
         Assert.Equal(HttpStatusCode.Conflict, inactiveAssignment.StatusCode);
+        await AssertProblemCodeAsync(inactiveAssignment, "employees.service_assignment_invalid");
 
         using HttpResponseMessage activateService = await client.SendAsync(AuthorizedWrite(
             HttpMethod.Post,
@@ -167,12 +179,23 @@ public sealed class MasterDataTests : IClassFixture<ApiFactory>, IAsyncLifetime
         Assert.NotNull(employee);
         Assert.Equal(service.Id, employee.Services.Single().Id);
 
+        using HttpResponseMessage duplicateServices = await client.SendAsync(AuthorizedWrite(
+            HttpMethod.Put,
+            $"/api/v1/employees/{employee.Id}/services",
+            accessToken,
+            new SetEmployeeServicesRequest([service.Id, service.Id])));
+        Assert.Equal(HttpStatusCode.BadRequest, duplicateServices.StatusCode);
+        await AssertProblemCodeAsync(
+            duplicateServices,
+            "employees.duplicate_service_assignment");
+
         using HttpResponseMessage duplicateLink = await client.SendAsync(AuthorizedWrite(
             HttpMethod.Post,
             "/api/v1/employees",
             accessToken,
             new CreateEmployeeRequest(ManagerUserId, "Second manager", null, null, [])));
         Assert.Equal(HttpStatusCode.Conflict, duplicateLink.StatusCode);
+        await AssertProblemCodeAsync(duplicateLink, "employees.user_already_linked");
 
         using HttpResponseMessage deactivateEmployee = await client.SendAsync(AuthorizedWrite(
             HttpMethod.Post,
@@ -267,6 +290,28 @@ public sealed class MasterDataTests : IClassFixture<ApiFactory>, IAsyncLifetime
             "/api/v1/customers?pageSize=101",
             atlasToken));
         Assert.Equal(HttpStatusCode.BadRequest, oversizedPage.StatusCode);
+        using (JsonDocument problem = JsonDocument.Parse(
+            await oversizedPage.Content.ReadAsStringAsync()))
+        {
+            Assert.Equal(
+                "common.validation_failed",
+                problem.RootElement.GetProperty("code").GetString());
+            Assert.True(problem.RootElement.GetProperty("errors").TryGetProperty("pageSize", out _));
+        }
+
+        using HttpResponseMessage invalidSort = await client.SendAsync(Authorized(
+            HttpMethod.Get,
+            "/api/v1/customers?sortBy=salary",
+            atlasToken));
+        Assert.Equal(HttpStatusCode.BadRequest, invalidSort.StatusCode);
+        await AssertProblemCodeAsync(invalidSort, "common.validation_failed");
+
+        using HttpResponseMessage invalidDirection = await client.SendAsync(Authorized(
+            HttpMethod.Get,
+            "/api/v1/customers?sortDirection=sideways",
+            atlasToken));
+        Assert.Equal(HttpStatusCode.BadRequest, invalidDirection.StatusCode);
+        await AssertProblemCodeAsync(invalidDirection, "common.validation_failed");
 
         string northwindToken = await LoginAsync(client, "owner@demo.local", NorthwindTenantId);
         foreach (string path in new[]
@@ -364,6 +409,16 @@ public sealed class MasterDataTests : IClassFixture<ApiFactory>, IAsyncLifetime
         HttpRequestMessage request = Authorized(method, uri, accessToken, body);
         request.Headers.Add("Origin", "http://localhost:5173");
         return request;
+    }
+
+    private static async Task AssertProblemCodeAsync(
+        HttpResponseMessage response,
+        string expectedCode)
+    {
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        using JsonDocument problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(expectedCode, problem.RootElement.GetProperty("code").GetString());
+        Assert.True(problem.RootElement.TryGetProperty("traceId", out _));
     }
 
     private static async Task<string> LoginAsync(

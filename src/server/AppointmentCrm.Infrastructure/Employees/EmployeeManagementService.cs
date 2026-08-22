@@ -77,14 +77,22 @@ internal sealed class EmployeeManagementService(
             serviceIds,
             cancellationToken);
         var now = timeProvider.GetUtcNow();
-        Employee employee = Employee.Create(
-            Guid.NewGuid(),
-            tenantContext.TenantId,
-            input.UserId,
-            input.Name,
-            input.Email,
-            input.Phone,
-            now);
+        Employee employee;
+        try
+        {
+            employee = Employee.Create(
+                Guid.NewGuid(),
+                tenantContext.TenantId,
+                input.UserId,
+                input.Name,
+                input.Email,
+                input.Phone,
+                now);
+        }
+        catch (ArgumentException exception)
+        {
+            throw ToValidationException(exception);
+        }
 
         dbContext.Employees.Add(employee);
         dbContext.EmployeeServices.AddRange(normalizedServiceIds.Select(serviceId =>
@@ -113,12 +121,19 @@ internal sealed class EmployeeManagementService(
         }
 
         await EnsureUserLinkIsAvailableAsync(input.UserId, employee.Id, cancellationToken);
-        employee.Update(
-            input.UserId,
-            input.Name,
-            input.Email,
-            input.Phone,
-            timeProvider.GetUtcNow());
+        try
+        {
+            employee.Update(
+                input.UserId,
+                input.Name,
+                input.Email,
+                input.Phone,
+                timeProvider.GetUtcNow());
+        }
+        catch (ArgumentException exception)
+        {
+            throw ToValidationException(exception);
+        }
         await SaveAsync(cancellationToken);
         return ToSummary(employee);
     }
@@ -235,7 +250,8 @@ internal sealed class EmployeeManagementService(
             cancellationToken);
         if (!membershipExists)
         {
-            throw new MasterDataConflictException(
+            throw new ApplicationConflictException(
+                EmployeeErrorCodes.UserNotInTenant,
                 "The linked user must be a member of the active tenant.");
         }
 
@@ -244,7 +260,8 @@ internal sealed class EmployeeManagementService(
             cancellationToken);
         if (alreadyLinked)
         {
-            throw new MasterDataConflictException(
+            throw new ApplicationConflictException(
+                EmployeeErrorCodes.UserAlreadyLinked,
                 "The linked user is already assigned to another employee.");
         }
     }
@@ -256,7 +273,12 @@ internal sealed class EmployeeManagementService(
         Guid[] distinctIds = serviceIds.Distinct().ToArray();
         if (distinctIds.Length != serviceIds.Count)
         {
-            throw new ArgumentException("Service assignments cannot contain duplicates.");
+            throw new ApplicationValidationException(
+                EmployeeErrorCodes.DuplicateServiceAssignment,
+                new Dictionary<string, string[]>
+                {
+                    ["serviceIds"] = ["Service assignments cannot contain duplicates."],
+                });
         }
 
         int activeServiceCount = await dbContext.Services.CountAsync(
@@ -264,7 +286,8 @@ internal sealed class EmployeeManagementService(
             cancellationToken);
         if (activeServiceCount != distinctIds.Length)
         {
-            throw new MasterDataConflictException(
+            throw new ApplicationConflictException(
+                EmployeeErrorCodes.ServiceAssignmentInvalid,
                 "Every assigned service must exist and be active in the current tenant.");
         }
 
@@ -287,9 +310,25 @@ internal sealed class EmployeeManagementService(
             exception,
             "ux_employees_tenant_user"))
         {
-            throw new MasterDataConflictException(
-                "The linked user is already assigned to another employee.");
+            throw new ApplicationConflictException(
+                EmployeeErrorCodes.UserAlreadyLinked,
+                "The linked user is already assigned to another employee.",
+                exception);
         }
+    }
+
+    private static ApplicationValidationException ToValidationException(
+        ArgumentException exception)
+    {
+        string? field = exception.ParamName;
+        if (string.Equals(field, "value", StringComparison.Ordinal))
+        {
+            field = exception.Message.StartsWith("Email", StringComparison.Ordinal)
+                ? "email"
+                : "phone";
+        }
+
+        return ApplicationValidationException.FromArgument(exception, field);
     }
 
     private static IQueryable<Employee> Order(

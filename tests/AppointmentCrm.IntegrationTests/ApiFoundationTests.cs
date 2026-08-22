@@ -77,6 +77,32 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
     }
 
     [Fact]
+    public async Task OpenApi_ExposesTheStablePagingQueryContract()
+    {
+        using var client = _factory.CreateClient();
+        string document = await client.GetStringAsync("/openapi/v1.json");
+        using JsonDocument payload = JsonDocument.Parse(document);
+
+        string[] parameterNames = payload.RootElement
+            .GetProperty("paths")
+            .GetProperty("/api/v1/customers")
+            .GetProperty("get")
+            .GetProperty("parameters")
+            .EnumerateArray()
+            .Select(parameter => parameter.GetProperty("name").GetString())
+            .OfType<string>()
+            .ToArray();
+
+        Assert.Contains("page", parameterNames);
+        Assert.Contains("pageSize", parameterNames);
+        Assert.Contains("search", parameterNames);
+        Assert.Contains("sortBy", parameterNames);
+        Assert.Contains("sortDirection", parameterNames);
+        Assert.Contains("includeArchived", parameterNames);
+        Assert.DoesNotContain("descending", parameterNames);
+    }
+
+    [Fact]
     public async Task UnknownEndpoint_ReturnsProblemDetailsWithTraceId()
     {
         using var client = _factory.CreateClient();
@@ -85,6 +111,9 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
         using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(404, payload.RootElement.GetProperty("status").GetInt32());
+        Assert.Equal("common.not_found", payload.RootElement.GetProperty("code").GetString());
+        Assert.Equal("/api/v1/not-found", payload.RootElement.GetProperty("instance").GetString());
         Assert.True(payload.RootElement.TryGetProperty("traceId", out _));
     }
 

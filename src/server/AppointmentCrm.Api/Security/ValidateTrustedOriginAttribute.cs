@@ -1,3 +1,4 @@
+using AppointmentCrm.Api.Errors;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -53,6 +54,7 @@ internal sealed class ValidateTrustedOriginFilter(
             StatusCodes.Status403Forbidden,
             ReasonPhrases.GetReasonPhrase(StatusCodes.Status403Forbidden),
             detail: "Untrusted request origin.");
+        ApiProblemDetailsDefaults.Apply(httpContext, problem, ApiErrorCodes.UntrustedOrigin);
         var result = new ObjectResult(problem)
         {
             StatusCode = StatusCodes.Status403Forbidden,

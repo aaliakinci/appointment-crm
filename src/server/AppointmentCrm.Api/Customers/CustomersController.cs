@@ -1,4 +1,3 @@
-using AppointmentCrm.Api.Controllers;
 using AppointmentCrm.Api.Security;
 using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Customers;
@@ -13,39 +12,17 @@ namespace AppointmentCrm.Api.Customers;
 [Route("api/v1/customers")]
 [Tags("Customers")]
 [Authorize]
-public sealed class CustomersController(ICustomerService customerService) : ApiControllerBase
+public sealed class CustomersController(ICustomerService customerService) : ControllerBase
 {
-    private static readonly HashSet<string> AllowedSorts =
-        new(StringComparer.Ordinal) { "name", "createdAt", "updatedAt" };
-
     [HttpGet]
     [Authorize(Policy = Permissions.CustomerRead)]
     public async Task<IActionResult> ListAsync(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = PageRequest.DefaultPageSize,
-        [FromQuery] string? search = null,
-        [FromQuery] bool includeArchived = false,
-        [FromQuery] string? sortBy = null,
-        [FromQuery] string? sortDirection = null,
+        [FromQuery] CustomerListQuery query,
         CancellationToken cancellationToken = default)
     {
-        if (!TryCreatePageRequest(
-            page,
-            pageSize,
-            search,
-            sortBy,
-            sortDirection,
-            "name",
-            AllowedSorts,
-            out PageRequest request,
-            out IActionResult? error))
-        {
-            return error!;
-        }
-
         PagedResult<CustomerSummary> result = await customerService.ListAsync(
-            request,
-            includeArchived,
+            query.ToPageRequest(),
+            query.IncludeArchived,
             cancellationToken);
         return Ok(ToResponse(result));
     }
@@ -69,24 +46,13 @@ public sealed class CustomersController(ICustomerService customerService) : ApiC
         CreateCustomerRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            CustomerSummary customer = await customerService.CreateAsync(
-                ToInput(request),
-                cancellationToken);
-            return CreatedAtRoute(
-                "GetCustomerById",
-                new { customerId = customer.Id },
-                ToResponse(customer));
-        }
-        catch (MasterDataConflictException exception)
-        {
-            return ApiProblem(StatusCodes.Status409Conflict, exception.Message);
-        }
-        catch (ArgumentException exception)
-        {
-            return InvalidArgument(exception);
-        }
+        CustomerSummary customer = await customerService.CreateAsync(
+            ToInput(request),
+            cancellationToken);
+        return CreatedAtRoute(
+            "GetCustomerById",
+            new { customerId = customer.Id },
+            ToResponse(customer));
     }
 
     [HttpPut("{customerId:guid}")]
@@ -97,22 +63,11 @@ public sealed class CustomersController(ICustomerService customerService) : ApiC
         UpdateCustomerRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            CustomerSummary? customer = await customerService.UpdateAsync(
-                customerId,
-                ToInput(request),
-                cancellationToken);
-            return customer is null ? NotFound() : Ok(ToResponse(customer));
-        }
-        catch (MasterDataConflictException exception)
-        {
-            return ApiProblem(StatusCodes.Status409Conflict, exception.Message);
-        }
-        catch (ArgumentException exception)
-        {
-            return InvalidArgument(exception);
-        }
+        CustomerSummary? customer = await customerService.UpdateAsync(
+            customerId,
+            ToInput(request),
+            cancellationToken);
+        return customer is null ? NotFound() : Ok(ToResponse(customer));
     }
 
     [HttpDelete("{customerId:guid}")]

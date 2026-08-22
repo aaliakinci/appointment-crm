@@ -66,14 +66,22 @@ internal sealed class CustomerService(
         CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow();
-        Customer customer = Customer.Create(
-            Guid.NewGuid(),
-            tenantContext.TenantId,
-            input.Name,
-            input.Email,
-            input.Phone,
-            input.Notes,
-            now);
+        Customer customer;
+        try
+        {
+            customer = Customer.Create(
+                Guid.NewGuid(),
+                tenantContext.TenantId,
+                input.Name,
+                input.Email,
+                input.Phone,
+                input.Notes,
+                now);
+        }
+        catch (ArgumentException exception)
+        {
+            throw ToValidationException(exception);
+        }
         await EnsureContactIsUniqueAsync(customer, null, cancellationToken);
 
         dbContext.Customers.Add(customer);
@@ -106,7 +114,14 @@ internal sealed class CustomerService(
         }
         catch (InvalidOperationException exception)
         {
-            throw new MasterDataConflictException(exception.Message);
+            throw new ApplicationConflictException(
+                CustomerErrorCodes.Archived,
+                exception.Message,
+                exception);
+        }
+        catch (ArgumentException exception)
+        {
+            throw ToValidationException(exception);
         }
 
         await EnsureContactIsUniqueAsync(customer, customer.Id, cancellationToken);
@@ -147,7 +162,8 @@ internal sealed class CustomerService(
                     && candidate.NormalizedEmail == customer.NormalizedEmail,
                 cancellationToken))
         {
-            throw new MasterDataConflictException(
+            throw new ApplicationConflictException(
+                CustomerErrorCodes.EmailConflict,
                 "A customer with the same email already exists in this tenant.");
         }
 
@@ -157,7 +173,8 @@ internal sealed class CustomerService(
                     && candidate.NormalizedPhone == customer.NormalizedPhone,
                 cancellationToken))
         {
-            throw new MasterDataConflictException(
+            throw new ApplicationConflictException(
+                CustomerErrorCodes.PhoneConflict,
                 "A customer with the same phone already exists in this tenant.");
         }
     }
@@ -173,9 +190,25 @@ internal sealed class CustomerService(
             "ux_customers_tenant_email",
             "ux_customers_tenant_phone"))
         {
-            throw new MasterDataConflictException(
-                "A customer with the same email or phone already exists in this tenant.");
+            throw new ApplicationConflictException(
+                CustomerErrorCodes.ContactConflict,
+                "A customer with the same email or phone already exists in this tenant.",
+                exception);
         }
+    }
+
+    private static ApplicationValidationException ToValidationException(
+        ArgumentException exception)
+    {
+        string? field = exception.ParamName;
+        if (string.Equals(field, "value", StringComparison.Ordinal))
+        {
+            field = exception.Message.StartsWith("Email", StringComparison.Ordinal)
+                ? "email"
+                : "phone";
+        }
+
+        return ApplicationValidationException.FromArgument(exception, field);
     }
 
     private static IQueryable<Customer> Order(IQueryable<Customer> query, PageRequest request) =>

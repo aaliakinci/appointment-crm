@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using AppointmentCrm.Api.Errors;
 using AppointmentCrm.Api.Health;
 using AppointmentCrm.Api.Observability;
 using AppointmentCrm.Api.Security;
@@ -10,6 +11,7 @@ using AppointmentCrm.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authentication.BearerToken;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
@@ -25,13 +27,14 @@ builder.Logging.AddJsonConsole(options =>
 
 builder.Services.AddProblemDetails(options =>
 {
-    options.CustomizeProblemDetails = context =>
-    {
-        context.ProblemDetails.Extensions["traceId"] = context.HttpContext.TraceIdentifier;
-    };
+    options.CustomizeProblemDetails = context => ApiProblemDetailsDefaults.Apply(
+        context.HttpContext,
+        context.ProblemDetails);
 });
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
+builder.Services.AddSingleton<ProblemDetailsFactory, ApiProblemDetailsFactory>();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddInfrastructure();
 builder.Services
     .AddAuthentication(BearerTokenDefaults.AuthenticationScheme)

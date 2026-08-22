@@ -3,6 +3,7 @@ import { createLilyHttpClient } from "@lily_platform/lily_ui/http";
 import { authSessionStore } from "@/state/authSessionStore";
 
 import { resolveApiBaseUrl } from "./apiBaseUrl";
+import { mapApiProblemError } from "./apiProblemContract";
 import {
   decodeAuthenticationResponse,
   decodeTenantOptions,
@@ -43,6 +44,7 @@ export const appApiClient = createLilyHttpClient({
   timeoutMs: 10_000,
   credentials: "include",
   defaultHeaders: { Accept: "application/json" },
+  mapApiError: mapApiProblemError,
   credentialProvider: {
     getAccessToken: () => authSessionStore.getAccessToken(),
   },

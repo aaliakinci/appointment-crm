@@ -1,4 +1,3 @@
-using AppointmentCrm.Api.Controllers;
 using AppointmentCrm.Api.Security;
 using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Identity;
@@ -13,39 +12,17 @@ namespace AppointmentCrm.Api.Services;
 [Route("api/v1/services")]
 [Tags("Services")]
 [Authorize]
-public sealed class ServicesController(IServiceCatalogService serviceCatalog) : ApiControllerBase
+public sealed class ServicesController(IServiceCatalogService serviceCatalog) : ControllerBase
 {
-    private static readonly HashSet<string> AllowedSorts =
-        new(StringComparer.Ordinal) { "name", "price", "duration", "updatedAt" };
-
     [HttpGet]
     [Authorize(Policy = Permissions.ServiceRead)]
     public async Task<IActionResult> ListAsync(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = PageRequest.DefaultPageSize,
-        [FromQuery] string? search = null,
-        [FromQuery] bool? isActive = null,
-        [FromQuery] string? sortBy = null,
-        [FromQuery] string? sortDirection = null,
+        [FromQuery] ServiceListQuery query,
         CancellationToken cancellationToken = default)
     {
-        if (!TryCreatePageRequest(
-            page,
-            pageSize,
-            search,
-            sortBy,
-            sortDirection,
-            "name",
-            AllowedSorts,
-            out PageRequest request,
-            out IActionResult? error))
-        {
-            return error!;
-        }
-
         PagedResult<ServiceSummary> result = await serviceCatalog.ListAsync(
-            request,
-            isActive,
+            query.ToPageRequest(),
+            query.IsActive,
             cancellationToken);
         return Ok(ToResponse(result));
     }
@@ -67,24 +44,13 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
         CreateServiceRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            ServiceSummary service = await serviceCatalog.CreateAsync(
-                ToInput(request),
-                cancellationToken);
-            return CreatedAtRoute(
-                "GetServiceById",
-                new { serviceId = service.Id },
-                ToResponse(service));
-        }
-        catch (MasterDataConflictException exception)
-        {
-            return ApiProblem(StatusCodes.Status409Conflict, exception.Message);
-        }
-        catch (ArgumentException exception)
-        {
-            return InvalidArgument(exception);
-        }
+        ServiceSummary service = await serviceCatalog.CreateAsync(
+            ToInput(request),
+            cancellationToken);
+        return CreatedAtRoute(
+            "GetServiceById",
+            new { serviceId = service.Id },
+            ToResponse(service));
     }
 
     [HttpPut("{serviceId:guid}")]
@@ -95,22 +61,11 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
         UpdateServiceRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            ServiceSummary? service = await serviceCatalog.UpdateAsync(
-                serviceId,
-                ToInput(request),
-                cancellationToken);
-            return service is null ? NotFound() : Ok(ToResponse(service));
-        }
-        catch (MasterDataConflictException exception)
-        {
-            return ApiProblem(StatusCodes.Status409Conflict, exception.Message);
-        }
-        catch (ArgumentException exception)
-        {
-            return InvalidArgument(exception);
-        }
+        ServiceSummary? service = await serviceCatalog.UpdateAsync(
+            serviceId,
+            ToInput(request),
+            cancellationToken);
+        return service is null ? NotFound() : Ok(ToResponse(service));
     }
 
     [HttpPost("{serviceId:guid}/activate")]

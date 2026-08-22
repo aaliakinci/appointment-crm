@@ -1,3 +1,4 @@
+using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Identity;
 using AppointmentCrm.Application.Tenancy;
 using AppointmentCrm.Domain.Identity;
@@ -5,8 +6,6 @@ using AppointmentCrm.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace AppointmentCrm.Infrastructure.Identity;
-
-public sealed class MembershipConflictException(string message) : InvalidOperationException(message);
 
 internal sealed class MembershipService(
     AppointmentCrmDbContext dbContext,
@@ -61,7 +60,8 @@ internal sealed class MembershipService(
                 cancellationToken);
             if (!anotherOwnerExists)
             {
-                throw new MembershipConflictException(
+                throw new ApplicationConflictException(
+                    IdentityErrorCodes.LastActiveOwner,
                     "A tenant must retain at least one active owner.");
             }
         }
@@ -101,7 +101,8 @@ internal sealed class MembershipService(
                 cancellationToken);
             if (!anotherOwnerExists)
             {
-                throw new MembershipConflictException(
+                throw new ApplicationConflictException(
+                    IdentityErrorCodes.LastActiveOwner,
                     "A tenant must retain at least one active owner.");
             }
         }

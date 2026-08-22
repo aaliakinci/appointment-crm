@@ -131,6 +131,9 @@ public sealed class IdentitySecurityTests : IClassFixture<ApiFactory>, IAsyncLif
         Assert.Equal(
             "Untrusted request origin.",
             problem.RootElement.GetProperty("detail").GetString());
+        Assert.Equal(
+            "security.untrusted_origin",
+            problem.RootElement.GetProperty("code").GetString());
         Assert.True(problem.RootElement.TryGetProperty("traceId", out _));
 
         using var trustedRequest = new HttpRequestMessage(
@@ -141,6 +144,38 @@ public sealed class IdentitySecurityTests : IClassFixture<ApiFactory>, IAsyncLif
         using HttpResponseMessage trustedResponse = await client.SendAsync(trustedRequest);
 
         trustedResponse.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task InvalidLogin_ReturnsStableAuthenticationProblemCode()
+    {
+        using HttpClient client = CreateClient();
+        using HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/auth/login",
+            new LoginRequest("owner@demo.local", "definitely-wrong", AtlasTenantId));
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        using JsonDocument problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("auth.invalid_credentials", problem.RootElement.GetProperty("code").GetString());
+        Assert.Equal(401, problem.RootElement.GetProperty("status").GetInt32());
+        Assert.True(problem.RootElement.TryGetProperty("traceId", out _));
+    }
+
+    [Fact]
+    public async Task ApiControllerAutomaticValidation_ReturnsStableValidationProblemCode()
+    {
+        using HttpClient client = CreateClient();
+        using HttpResponseMessage response = await client.PostAsJsonAsync(
+            "/api/v1/auth/login",
+            new { });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        using JsonDocument problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "common.validation_failed",
+            problem.RootElement.GetProperty("code").GetString());
+        Assert.True(problem.RootElement.TryGetProperty("errors", out _));
+        Assert.True(problem.RootElement.TryGetProperty("traceId", out _));
     }
 
     [Fact]
@@ -304,6 +339,26 @@ public sealed class IdentitySecurityTests : IClassFixture<ApiFactory>, IAsyncLif
         var report = await reportResponse.Content.ReadFromJsonAsync<MembershipReportResponse>();
         Assert.NotNull(report);
         Assert.Equal(4, report.Total);
+    }
+
+    [Fact]
+    public async Task LastActiveOwnerRule_ReturnsStableMembershipConflictCode()
+    {
+        using HttpClient client = CreateClient();
+        LoginResult owner = await LoginAsync(client, "owner@demo.local", AtlasTenantId);
+
+        using HttpResponseMessage response = await client.SendAsync(Authorized(
+            HttpMethod.Patch,
+            $"/api/v1/memberships/{AtlasOwnerMembershipId}",
+            owner.Payload.AccessToken!,
+            new UpdateMembershipRequest(TenantRoles.Manager, true)));
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        using JsonDocument problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "memberships.last_active_owner",
+            problem.RootElement.GetProperty("code").GetString());
+        Assert.True(problem.RootElement.TryGetProperty("traceId", out _));
     }
 
     [Theory]

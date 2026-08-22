@@ -1,4 +1,3 @@
-using AppointmentCrm.Api.Controllers;
 using AppointmentCrm.Api.Security;
 using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Employees;
@@ -14,41 +13,18 @@ namespace AppointmentCrm.Api.Employees;
 [Tags("Employees")]
 [Authorize]
 public sealed class EmployeesController(IEmployeeManagementService employeeService)
-    : ApiControllerBase
+    : ControllerBase
 {
-    private static readonly HashSet<string> AllowedSorts =
-        new(StringComparer.Ordinal) { "name", "createdAt", "updatedAt" };
-
     [HttpGet]
     [Authorize(Policy = Permissions.EmployeeRead)]
     public async Task<IActionResult> ListAsync(
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = PageRequest.DefaultPageSize,
-        [FromQuery] string? search = null,
-        [FromQuery] bool? isActive = null,
-        [FromQuery] Guid? serviceId = null,
-        [FromQuery] string? sortBy = null,
-        [FromQuery] string? sortDirection = null,
+        [FromQuery] EmployeeListQuery query,
         CancellationToken cancellationToken = default)
     {
-        if (!TryCreatePageRequest(
-            page,
-            pageSize,
-            search,
-            sortBy,
-            sortDirection,
-            "name",
-            AllowedSorts,
-            out PageRequest request,
-            out IActionResult? error))
-        {
-            return error!;
-        }
-
         PagedResult<EmployeeSummary> result = await employeeService.ListAsync(
-            request,
-            isActive,
-            serviceId,
+            query.ToPageRequest(),
+            query.IsActive,
+            query.ServiceId,
             cancellationToken);
         return Ok(ToResponse(result));
     }
@@ -86,25 +62,14 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
         CreateEmployeeRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            EmployeeSummary employee = await employeeService.CreateAsync(
-                ToInput(request.UserId, request.Name, request.Email, request.Phone),
-                request.ServiceIds ?? [],
-                cancellationToken);
-            return CreatedAtRoute(
-                "GetEmployeeById",
-                new { employeeId = employee.Id },
-                ToResponse(employee));
-        }
-        catch (MasterDataConflictException exception)
-        {
-            return ApiProblem(StatusCodes.Status409Conflict, exception.Message);
-        }
-        catch (ArgumentException exception)
-        {
-            return InvalidArgument(exception);
-        }
+        EmployeeSummary employee = await employeeService.CreateAsync(
+            ToInput(request.UserId, request.Name, request.Email, request.Phone),
+            request.ServiceIds ?? [],
+            cancellationToken);
+        return CreatedAtRoute(
+            "GetEmployeeById",
+            new { employeeId = employee.Id },
+            ToResponse(employee));
     }
 
     [HttpPut("{employeeId:guid}")]
@@ -115,22 +80,11 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
         UpdateEmployeeRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            EmployeeSummary? employee = await employeeService.UpdateAsync(
-                employeeId,
-                ToInput(request.UserId, request.Name, request.Email, request.Phone),
-                cancellationToken);
-            return employee is null ? NotFound() : Ok(ToResponse(employee));
-        }
-        catch (MasterDataConflictException exception)
-        {
-            return ApiProblem(StatusCodes.Status409Conflict, exception.Message);
-        }
-        catch (ArgumentException exception)
-        {
-            return InvalidArgument(exception);
-        }
+        EmployeeSummary? employee = await employeeService.UpdateAsync(
+            employeeId,
+            ToInput(request.UserId, request.Name, request.Email, request.Phone),
+            cancellationToken);
+        return employee is null ? NotFound() : Ok(ToResponse(employee));
     }
 
     [HttpPut("{employeeId:guid}/services")]
@@ -141,22 +95,11 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
         SetEmployeeServicesRequest request,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            EmployeeSummary? employee = await employeeService.SetServicesAsync(
-                employeeId,
-                request.ServiceIds ?? [],
-                cancellationToken);
-            return employee is null ? NotFound() : Ok(ToResponse(employee));
-        }
-        catch (MasterDataConflictException exception)
-        {
-            return ApiProblem(StatusCodes.Status409Conflict, exception.Message);
-        }
-        catch (ArgumentException exception)
-        {
-            return InvalidArgument(exception);
-        }
+        EmployeeSummary? employee = await employeeService.SetServicesAsync(
+            employeeId,
+            request.ServiceIds ?? [],
+            cancellationToken);
+        return employee is null ? NotFound() : Ok(ToResponse(employee));
     }
 
     [HttpPost("{employeeId:guid}/activate")]
