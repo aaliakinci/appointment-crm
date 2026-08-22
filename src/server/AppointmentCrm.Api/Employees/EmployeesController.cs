@@ -12,12 +12,25 @@ namespace AppointmentCrm.Api.Employees;
 [Route("api/v1/employees")]
 [Tags("Employees")]
 [Authorize]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status401Unauthorized,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status403Forbidden,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status500InternalServerError,
+    "application/problem+json")]
 public sealed class EmployeesController(IEmployeeManagementService employeeService)
     : ControllerBase
 {
     [HttpGet]
     [Authorize(Policy = Permissions.EmployeeRead)]
-    public async Task<IActionResult> ListAsync(
+    [ProducesResponseType<PagedResponse<EmployeeResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    public async Task<ActionResult<PagedResponse<EmployeeResponse>>> ListAsync(
         [FromQuery] EmployeeListQuery query,
         CancellationToken cancellationToken = default)
     {
@@ -31,21 +44,29 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
 
     [HttpGet("user-options")]
     [Authorize(Policy = Permissions.EmployeeManage)]
-    public async Task<IActionResult> ListUserOptionsAsync(CancellationToken cancellationToken)
+    [ProducesResponseType<IReadOnlyList<EmployeeUserOptionResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<EmployeeUserOptionResponse>>> ListUserOptionsAsync(
+        CancellationToken cancellationToken)
     {
         IReadOnlyList<EmployeeUserOption> options = await employeeService.ListUserOptionsAsync(
             cancellationToken);
-        return Ok(options.Select(option => new EmployeeUserOptionResponse(
-            option.UserId,
-            option.DisplayName,
-            option.Email,
-            option.Role,
-            option.IsLinked)));
+        return Ok(options
+            .Select(option => new EmployeeUserOptionResponse(
+                option.UserId,
+                option.DisplayName,
+                option.Email,
+                option.Role,
+                option.IsLinked))
+            .ToList());
     }
 
     [HttpGet("{employeeId:guid}", Name = "GetEmployeeById")]
     [Authorize(Policy = Permissions.EmployeeRead)]
-    public async Task<IActionResult> GetAsync(
+    [ProducesResponseType<EmployeeResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public async Task<ActionResult<EmployeeResponse>> GetAsync(
         Guid employeeId,
         CancellationToken cancellationToken)
     {
@@ -58,7 +79,14 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
     [HttpPost]
     [Authorize(Policy = Permissions.EmployeeManage)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> CreateAsync(
+    [ProducesResponseType<EmployeeResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status409Conflict,
+        "application/problem+json")]
+    public async Task<ActionResult<EmployeeResponse>> CreateAsync(
         CreateEmployeeRequest request,
         CancellationToken cancellationToken)
     {
@@ -75,7 +103,17 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
     [HttpPut("{employeeId:guid}")]
     [Authorize(Policy = Permissions.EmployeeManage)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> UpdateAsync(
+    [ProducesResponseType<EmployeeResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status409Conflict,
+        "application/problem+json")]
+    public async Task<ActionResult<EmployeeResponse>> UpdateAsync(
         Guid employeeId,
         UpdateEmployeeRequest request,
         CancellationToken cancellationToken)
@@ -90,7 +128,17 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
     [HttpPut("{employeeId:guid}/services")]
     [Authorize(Policy = Permissions.EmployeeManage)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> SetServicesAsync(
+    [ProducesResponseType<EmployeeResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status409Conflict,
+        "application/problem+json")]
+    public async Task<ActionResult<EmployeeResponse>> SetServicesAsync(
         Guid employeeId,
         SetEmployeeServicesRequest request,
         CancellationToken cancellationToken)
@@ -105,7 +153,11 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
     [HttpPost("{employeeId:guid}/activate")]
     [Authorize(Policy = Permissions.EmployeeManage)]
     [ValidateTrustedOrigin]
-    public Task<IActionResult> ActivateAsync(
+    [ProducesResponseType<EmployeeResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public Task<ActionResult<EmployeeResponse>> ActivateAsync(
         Guid employeeId,
         CancellationToken cancellationToken) =>
         SetActiveAsync(employeeId, true, cancellationToken);
@@ -113,12 +165,16 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
     [HttpPost("{employeeId:guid}/deactivate")]
     [Authorize(Policy = Permissions.EmployeeManage)]
     [ValidateTrustedOrigin]
-    public Task<IActionResult> DeactivateAsync(
+    [ProducesResponseType<EmployeeResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public Task<ActionResult<EmployeeResponse>> DeactivateAsync(
         Guid employeeId,
         CancellationToken cancellationToken) =>
         SetActiveAsync(employeeId, false, cancellationToken);
 
-    private async Task<IActionResult> SetActiveAsync(
+    private async Task<ActionResult<EmployeeResponse>> SetActiveAsync(
         Guid employeeId,
         bool isActive,
         CancellationToken cancellationToken)

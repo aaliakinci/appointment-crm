@@ -1,0 +1,82 @@
+using System.Reflection;
+using AppointmentCrm.Api.Customers;
+using AppointmentCrm.Api.Employees;
+using AppointmentCrm.Api.Identity;
+using AppointmentCrm.Api.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Routing;
+
+namespace AppointmentCrm.UnitTests.Controllers;
+
+public sealed class ControllerResponseContractTests
+{
+    private static readonly Type[] ControllerTypes =
+    [
+        typeof(AuthController),
+        typeof(MembershipsController),
+        typeof(CustomersController),
+        typeof(ServicesController),
+        typeof(EmployeesController),
+    ];
+
+    [Fact]
+    public void HttpActions_UseTypedContractsMatchingTheirSuccessMetadata()
+    {
+        foreach (MethodInfo action in ControllerTypes.SelectMany(GetHttpActions))
+        {
+            Type actionResultType = UnwrapTask(action.ReturnType);
+            ProducesResponseTypeAttribute success = Assert.Single(
+                action.GetCustomAttributes<ProducesResponseTypeAttribute>(),
+                response => response.StatusCode is >= 200 and < 300);
+
+            if (actionResultType == typeof(ActionResult))
+            {
+                Assert.Equal(StatusCodes.Status204NoContent, success.StatusCode);
+                continue;
+            }
+
+            Assert.True(
+                actionResultType.IsGenericType
+                    && actionResultType.GetGenericTypeDefinition() == typeof(ActionResult<>),
+                $"{action.DeclaringType?.Name}.{action.Name} must return ActionResult<T>. ");
+            Assert.Equal(actionResultType.GenericTypeArguments[0], success.Type);
+        }
+    }
+
+    [Fact]
+    public void Controllers_DeclareTheCommonProblemResponses()
+    {
+        int[] expectedStatuses =
+        [
+            StatusCodes.Status401Unauthorized,
+            StatusCodes.Status403Forbidden,
+            StatusCodes.Status500InternalServerError,
+        ];
+
+        foreach (Type controllerType in ControllerTypes)
+        {
+            ProducesResponseTypeAttribute[] responses = controllerType
+                .GetCustomAttributes<ProducesResponseTypeAttribute>()
+                .ToArray();
+
+            foreach (int expectedStatus in expectedStatuses)
+            {
+                ProducesResponseTypeAttribute response = Assert.Single(
+                    responses,
+                    candidate => candidate.StatusCode == expectedStatus);
+                Assert.Equal(typeof(ProblemDetails), response.Type);
+            }
+        }
+    }
+
+    private static IEnumerable<MethodInfo> GetHttpActions(Type controllerType) =>
+        controllerType
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .Where(method => method.GetCustomAttributes<HttpMethodAttribute>().Any());
+
+    private static Type UnwrapTask(Type returnType) =>
+        returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(Task<>)
+            ? returnType.GenericTypeArguments[0]
+            : returnType;
+}

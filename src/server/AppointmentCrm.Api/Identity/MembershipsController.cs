@@ -9,6 +9,15 @@ namespace AppointmentCrm.Api.Identity;
 [Route("api/v1/memberships")]
 [Tags("Memberships")]
 [Authorize]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status401Unauthorized,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status403Forbidden,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status500InternalServerError,
+    "application/problem+json")]
 public sealed class MembershipsController : ControllerBase
 {
     private readonly IMembershipService _membershipService;
@@ -20,16 +29,20 @@ public sealed class MembershipsController : ControllerBase
 
     [HttpGet]
     [Authorize(Policy = Permissions.MembershipRead)]
-    public async Task<IActionResult> ListAsync(CancellationToken cancellationToken)
+    [ProducesResponseType<IReadOnlyList<MembershipResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<MembershipResponse>>> ListAsync(
+        CancellationToken cancellationToken)
     {
         IReadOnlyList<MembershipSummary> memberships = await _membershipService.ListAsync(
             cancellationToken);
-        return Ok(memberships.Select(ToResponse));
+        return Ok(memberships.Select(ToResponse).ToList());
     }
 
     [HttpGet("report")]
     [Authorize(Policy = Permissions.MembershipRead)]
-    public async Task<IActionResult> GetReportAsync(CancellationToken cancellationToken)
+    [ProducesResponseType<MembershipReportResponse>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<MembershipReportResponse>> GetReportAsync(
+        CancellationToken cancellationToken)
     {
         MembershipReport report = await _membershipService.GetReportAsync(cancellationToken);
         return Ok(new MembershipReportResponse(report.Total, report.Active, report.ByRole));
@@ -37,7 +50,11 @@ public sealed class MembershipsController : ControllerBase
 
     [HttpGet("{membershipId:guid}")]
     [Authorize(Policy = Permissions.MembershipRead)]
-    public async Task<IActionResult> GetAsync(
+    [ProducesResponseType<MembershipResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public async Task<ActionResult<MembershipResponse>> GetAsync(
         Guid membershipId,
         CancellationToken cancellationToken)
     {
@@ -51,7 +68,17 @@ public sealed class MembershipsController : ControllerBase
 
     [HttpPatch("{membershipId:guid}")]
     [Authorize(Policy = Permissions.MembershipManage)]
-    public async Task<IActionResult> UpdateAsync(
+    [ProducesResponseType<MembershipResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status409Conflict,
+        "application/problem+json")]
+    public async Task<ActionResult<MembershipResponse>> UpdateAsync(
         Guid membershipId,
         UpdateMembershipRequest request,
         CancellationToken cancellationToken)
@@ -68,7 +95,14 @@ public sealed class MembershipsController : ControllerBase
 
     [HttpDelete("{membershipId:guid}")]
     [Authorize(Policy = Permissions.MembershipManage)]
-    public async Task<IActionResult> ArchiveAsync(
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status409Conflict,
+        "application/problem+json")]
+    public async Task<ActionResult> ArchiveAsync(
         Guid membershipId,
         CancellationToken cancellationToken)
     {
@@ -87,5 +121,4 @@ public sealed class MembershipsController : ControllerBase
             membership.Role,
             membership.IsActive,
             membership.UpdatedAtUtc);
-
 }

@@ -12,11 +12,24 @@ namespace AppointmentCrm.Api.Customers;
 [Route("api/v1/customers")]
 [Tags("Customers")]
 [Authorize]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status401Unauthorized,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status403Forbidden,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status500InternalServerError,
+    "application/problem+json")]
 public sealed class CustomersController(ICustomerService customerService) : ControllerBase
 {
     [HttpGet]
     [Authorize(Policy = Permissions.CustomerRead)]
-    public async Task<IActionResult> ListAsync(
+    [ProducesResponseType<PagedResponse<CustomerResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    public async Task<ActionResult<PagedResponse<CustomerResponse>>> ListAsync(
         [FromQuery] CustomerListQuery query,
         CancellationToken cancellationToken = default)
     {
@@ -29,7 +42,11 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
 
     [HttpGet("{customerId:guid}", Name = "GetCustomerById")]
     [Authorize(Policy = Permissions.CustomerRead)]
-    public async Task<IActionResult> GetAsync(
+    [ProducesResponseType<CustomerResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public async Task<ActionResult<CustomerResponse>> GetAsync(
         Guid customerId,
         CancellationToken cancellationToken)
     {
@@ -42,7 +59,14 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
     [HttpPost]
     [Authorize(Policy = Permissions.CustomerManage)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> CreateAsync(
+    [ProducesResponseType<CustomerResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status409Conflict,
+        "application/problem+json")]
+    public async Task<ActionResult<CustomerResponse>> CreateAsync(
         CreateCustomerRequest request,
         CancellationToken cancellationToken)
     {
@@ -58,7 +82,17 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
     [HttpPut("{customerId:guid}")]
     [Authorize(Policy = Permissions.CustomerManage)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> UpdateAsync(
+    [ProducesResponseType<CustomerResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status409Conflict,
+        "application/problem+json")]
+    public async Task<ActionResult<CustomerResponse>> UpdateAsync(
         Guid customerId,
         UpdateCustomerRequest request,
         CancellationToken cancellationToken)
@@ -73,7 +107,11 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
     [HttpDelete("{customerId:guid}")]
     [Authorize(Policy = Permissions.CustomerManage)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> ArchiveAsync(
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public async Task<ActionResult> ArchiveAsync(
         Guid customerId,
         CancellationToken cancellationToken)
     {

@@ -103,6 +103,55 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
     }
 
     [Fact]
+    public async Task OpenApi_ExposesTypedSuccessAndProblemResponseContracts()
+    {
+        using var client = _factory.CreateClient();
+        string document = await client.GetStringAsync("/openapi/v1.json");
+        using JsonDocument payload = JsonDocument.Parse(document);
+        JsonElement paths = payload.RootElement.GetProperty("paths");
+
+        AssertResponseContent(
+            paths.GetProperty("/api/v1/customers").GetProperty("get"),
+            "200",
+            "application/json");
+        AssertResponseContent(
+            paths.GetProperty("/api/v1/customers").GetProperty("get"),
+            "400",
+            "application/problem+json");
+        AssertResponseContent(
+            paths.GetProperty("/api/v1/customers").GetProperty("get"),
+            "401",
+            "application/problem+json");
+        AssertResponseContent(
+            paths.GetProperty("/api/v1/customers").GetProperty("get"),
+            "403",
+            "application/problem+json");
+        AssertResponseContent(
+            paths.GetProperty("/api/v1/customers").GetProperty("get"),
+            "500",
+            "application/problem+json");
+        AssertResponseContent(
+            paths.GetProperty("/api/v1/customers").GetProperty("post"),
+            "201",
+            "application/json");
+        AssertResponseContent(
+            paths.GetProperty("/api/v1/customers/{customerId}").GetProperty("get"),
+            "404",
+            "application/problem+json");
+        AssertResponseContent(
+            paths.GetProperty("/api/v1/auth/login").GetProperty("post"),
+            "200",
+            "application/json");
+
+        JsonElement archiveResponses = paths
+            .GetProperty("/api/v1/customers/{customerId}")
+            .GetProperty("delete")
+            .GetProperty("responses");
+        Assert.True(archiveResponses.TryGetProperty("204", out JsonElement noContent));
+        Assert.False(noContent.TryGetProperty("content", out _));
+    }
+
+    [Fact]
     public async Task UnknownEndpoint_ReturnsProblemDetailsWithTraceId()
     {
         using var client = _factory.CreateClient();
@@ -137,5 +186,19 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
         var provider = _factory.Services.GetRequiredService<IDataProtectionProvider>();
 
         Assert.IsType<EphemeralDataProtectionProvider>(provider);
+    }
+
+    private static void AssertResponseContent(
+        JsonElement operation,
+        string statusCode,
+        string contentType)
+    {
+        Assert.True(
+            operation.GetProperty("responses").TryGetProperty(statusCode, out JsonElement response),
+            $"OpenAPI response '{statusCode}' was not found.");
+        Assert.True(
+            response.GetProperty("content").TryGetProperty(contentType, out JsonElement content),
+            $"OpenAPI content type '{contentType}' was not found for response '{statusCode}'.");
+        Assert.Equal(JsonValueKind.Object, content.GetProperty("schema").ValueKind);
     }
 }

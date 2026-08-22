@@ -15,6 +15,15 @@ namespace AppointmentCrm.Api.Identity;
 [Route("api/v1/auth")]
 [Tags("Identity")]
 [Authorize]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status401Unauthorized,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status403Forbidden,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status500InternalServerError,
+    "application/problem+json")]
 public sealed class AuthController : ControllerBase
 {
     private readonly IIdentitySessionService _identityService;
@@ -31,7 +40,14 @@ public sealed class AuthController : ControllerBase
     [HttpPost("login")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
-    public async Task<IActionResult> LoginAsync(
+    [ProducesResponseType<AuthenticationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status429TooManyRequests,
+        "application/problem+json")]
+    public async Task<ActionResult<AuthenticationResponse>> LoginAsync(
         LoginRequest request,
         CancellationToken cancellationToken)
     {
@@ -50,7 +66,12 @@ public sealed class AuthController : ControllerBase
     [AllowAnonymous]
     [EnableRateLimiting("refresh")]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> RefreshAsync(CancellationToken cancellationToken)
+    [ProducesResponseType<AuthenticationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status429TooManyRequests,
+        "application/problem+json")]
+    public async Task<ActionResult<AuthenticationResponse>> RefreshAsync(
+        CancellationToken cancellationToken)
     {
         string? refreshToken = Request.Cookies[_options.RefreshCookieName];
         if (string.IsNullOrWhiteSpace(refreshToken))
@@ -69,7 +90,8 @@ public sealed class AuthController : ControllerBase
 
     [HttpPost("logout")]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> LogoutAsync(CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> LogoutAsync(CancellationToken cancellationToken)
     {
         if (!TryGetIdentityIds(User, out Guid userId, out _, out Guid sessionId))
         {
@@ -91,7 +113,8 @@ public sealed class AuthController : ControllerBase
     [HttpPost("revoke-all")]
     [Authorize(Policy = Permissions.SessionManageOwn)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> RevokeAllAsync(CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> RevokeAllAsync(CancellationToken cancellationToken)
     {
         if (!TryGetIdentityIds(User, out Guid userId, out _, out _))
         {
@@ -108,7 +131,14 @@ public sealed class AuthController : ControllerBase
     [HttpPost("switch-tenant")]
     [Authorize(Policy = Permissions.TenantSwitch)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> SwitchTenantAsync(
+    [ProducesResponseType<AuthenticationResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public async Task<ActionResult<AuthenticationResponse>> SwitchTenantAsync(
         SwitchTenantRequest request,
         CancellationToken cancellationToken)
     {
@@ -128,7 +158,8 @@ public sealed class AuthController : ControllerBase
     }
 
     [HttpGet("me")]
-    public IActionResult GetCurrentIdentity()
+    [ProducesResponseType<CurrentIdentityResponse>(StatusCodes.Status200OK)]
+    public ActionResult<CurrentIdentityResponse> GetCurrentIdentity()
     {
         ClaimsPrincipal user = User;
         if (!TryGetIdentityIds(user, out Guid userId, out Guid membershipId, out Guid sessionId)
@@ -158,7 +189,8 @@ public sealed class AuthController : ControllerBase
 
     [HttpGet("tenants")]
     [Authorize(Policy = Permissions.TenantSwitch)]
-    public async Task<IActionResult> ListAvailableTenantsAsync(
+    [ProducesResponseType<IReadOnlyList<TenantOptionResponse>>(StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<TenantOptionResponse>>> ListAvailableTenantsAsync(
         CancellationToken cancellationToken)
     {
         if (!TryGetIdentityIds(User, out Guid userId, out _, out _))
@@ -171,10 +203,10 @@ public sealed class AuthController : ControllerBase
         IReadOnlyList<TenantOption> tenants = await _identityService.ListAvailableTenantsAsync(
             userId,
             cancellationToken);
-        return Ok(tenants.Select(ToResponse));
+        return Ok(tenants.Select(ToResponse).ToList());
     }
 
-    private IActionResult WriteAuthenticationOutcome(
+    private ActionResult<AuthenticationResponse> WriteAuthenticationOutcome(
         AuthenticationOutcome outcome,
         string failureCode = IdentityErrorCodes.InvalidSession,
         bool clearCookieOnFailure = true)
@@ -290,5 +322,4 @@ public sealed class AuthController : ControllerBase
 
     private static TenantOptionResponse ToResponse(TenantOption tenant) =>
         new(tenant.Id, tenant.Name, tenant.Slug, tenant.Role);
-
 }

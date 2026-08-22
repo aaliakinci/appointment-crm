@@ -12,11 +12,24 @@ namespace AppointmentCrm.Api.Services;
 [Route("api/v1/services")]
 [Tags("Services")]
 [Authorize]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status401Unauthorized,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status403Forbidden,
+    "application/problem+json")]
+[ProducesResponseType<ProblemDetails>(
+    StatusCodes.Status500InternalServerError,
+    "application/problem+json")]
 public sealed class ServicesController(IServiceCatalogService serviceCatalog) : ControllerBase
 {
     [HttpGet]
     [Authorize(Policy = Permissions.ServiceRead)]
-    public async Task<IActionResult> ListAsync(
+    [ProducesResponseType<PagedResponse<ServiceResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    public async Task<ActionResult<PagedResponse<ServiceResponse>>> ListAsync(
         [FromQuery] ServiceListQuery query,
         CancellationToken cancellationToken = default)
     {
@@ -29,7 +42,11 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
 
     [HttpGet("{serviceId:guid}", Name = "GetServiceById")]
     [Authorize(Policy = Permissions.ServiceRead)]
-    public async Task<IActionResult> GetAsync(
+    [ProducesResponseType<ServiceResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public async Task<ActionResult<ServiceResponse>> GetAsync(
         Guid serviceId,
         CancellationToken cancellationToken)
     {
@@ -40,7 +57,14 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
     [HttpPost]
     [Authorize(Policy = Permissions.ServiceManage)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> CreateAsync(
+    [ProducesResponseType<ServiceResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status409Conflict,
+        "application/problem+json")]
+    public async Task<ActionResult<ServiceResponse>> CreateAsync(
         CreateServiceRequest request,
         CancellationToken cancellationToken)
     {
@@ -56,7 +80,17 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
     [HttpPut("{serviceId:guid}")]
     [Authorize(Policy = Permissions.ServiceManage)]
     [ValidateTrustedOrigin]
-    public async Task<IActionResult> UpdateAsync(
+    [ProducesResponseType<ServiceResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status409Conflict,
+        "application/problem+json")]
+    public async Task<ActionResult<ServiceResponse>> UpdateAsync(
         Guid serviceId,
         UpdateServiceRequest request,
         CancellationToken cancellationToken)
@@ -71,7 +105,11 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
     [HttpPost("{serviceId:guid}/activate")]
     [Authorize(Policy = Permissions.ServiceManage)]
     [ValidateTrustedOrigin]
-    public Task<IActionResult> ActivateAsync(
+    [ProducesResponseType<ServiceResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public Task<ActionResult<ServiceResponse>> ActivateAsync(
         Guid serviceId,
         CancellationToken cancellationToken) =>
         SetActiveAsync(serviceId, true, cancellationToken);
@@ -79,12 +117,16 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
     [HttpPost("{serviceId:guid}/deactivate")]
     [Authorize(Policy = Permissions.ServiceManage)]
     [ValidateTrustedOrigin]
-    public Task<IActionResult> DeactivateAsync(
+    [ProducesResponseType<ServiceResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public Task<ActionResult<ServiceResponse>> DeactivateAsync(
         Guid serviceId,
         CancellationToken cancellationToken) =>
         SetActiveAsync(serviceId, false, cancellationToken);
 
-    private async Task<IActionResult> SetActiveAsync(
+    private async Task<ActionResult<ServiceResponse>> SetActiveAsync(
         Guid serviceId,
         bool isActive,
         CancellationToken cancellationToken)
