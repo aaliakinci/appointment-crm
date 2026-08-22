@@ -30,6 +30,55 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/shared/**/*.{ts,tsx}"],
+    ignores: ["src/shared/**/*.test.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/app/**", "@/features/**", "@/pages/**"],
+              message: "Shared code must remain independent from app, feature, and page layers.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/features/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/app/**", "@/pages/**"],
+              message: "Features must not depend on the app composition or page layers.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/pages/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features/*/**"],
+              message: "Pages must consume a feature through its public entrypoint.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     ...tseslint.configs.disableTypeChecked,
     files: ["**/*.js"],
     languageOptions: {

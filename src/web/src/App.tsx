@@ -4,9 +4,9 @@ import { Progress } from "@lily_platform/lily_ui/ui/atoms/Progress";
 import { Stack } from "@lily_platform/lily_ui/ui/atoms/Stack";
 import { Typography } from "@lily_platform/lily_ui/ui/atoms/Typography";
 
+import { useAuth } from "@/features/auth/session";
 import { useAppTranslation } from "@/i18n";
 import { APP_ROUTES, appGuardRegistry, type AppRouterState } from "@/router";
-import { useAuth } from "@/state";
 
 export function App() {
   const { initialized, session } = useAuth();

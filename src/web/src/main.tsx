@@ -6,11 +6,14 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./App";
-import { AppErrorBoundary } from "./components";
+import { appStore } from "./app/store/appStore";
+import { createAppointmentCrmTheme } from "./app/theme";
+import { AuthProvider, configureAuthHttpClient } from "./features/auth/session";
 import { appI18nOptions } from "./i18n";
-import { appStore, AuthProvider } from "./state";
+import { AppErrorBoundary } from "./shared/components";
 import "./styles.css";
-import { createAppointmentCrmTheme } from "./theme";
+
+configureAuthHttpClient();
 
 const rootElement = document.getElementById("root");
 
