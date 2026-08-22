@@ -4,7 +4,6 @@ using AppointmentCrm.Api.Health;
 using AppointmentCrm.Api.Observability;
 using AppointmentCrm.Api.Security;
 using AppointmentCrm.Application.Identity;
-using AppointmentCrm.Contracts;
 using AppointmentCrm.Infrastructure;
 using AppointmentCrm.Infrastructure.Health;
 using AppointmentCrm.Infrastructure.Identity;
@@ -150,16 +149,6 @@ app.MapHealthChecks(
 app.MapHealthChecks(
     "/health/ready",
     HealthResponseWriter.CreateOptions(registration => registration.Tags.Contains("ready")));
-
-app.MapGet(
-        "/api/v1/system/status",
-        (HttpContext context) => TypedResults.Ok(new SystemStatusResponse(
-            Service: "appointment-crm-api",
-            Status: "ready",
-            TimestampUtc: DateTimeOffset.UtcNow,
-            TraceId: context.TraceIdentifier)))
-    .WithName("GetSystemStatus")
-    .WithTags("System");
 
 app.Run();
 

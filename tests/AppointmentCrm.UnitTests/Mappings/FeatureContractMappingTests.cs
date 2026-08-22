@@ -1,0 +1,108 @@
+using AppointmentCrm.Api.Customers;
+using AppointmentCrm.Api.Employees;
+using AppointmentCrm.Api.Identity;
+using AppointmentCrm.Api.Services;
+using AppointmentCrm.Application.Common;
+using AppointmentCrm.Application.Customers;
+using AppointmentCrm.Application.Employees;
+using AppointmentCrm.Application.Identity;
+using AppointmentCrm.Application.Services;
+using AppointmentCrm.Contracts;
+
+namespace AppointmentCrm.UnitTests.Mappings;
+
+public sealed class FeatureContractMappingTests
+{
+    [Fact]
+    public void CustomerMappings_PreserveInputItemsAndPageMetadata()
+    {
+        var request = new CreateCustomerRequest("Ada", "ada@example.test", null, "VIP");
+        var summary = new CustomerSummary(
+            Guid.NewGuid(),
+            request.Name,
+            request.Email,
+            request.Phone,
+            request.Notes,
+            null,
+            DateTimeOffset.Parse("2026-08-22T10:00:00Z"),
+            DateTimeOffset.Parse("2026-08-22T11:00:00Z"));
+        var result = new PagedResult<CustomerSummary>([summary], 2, 20, 41);
+
+        CustomerInput input = request.ToInput();
+        PagedResponse<CustomerResponse> response = result.ToResponse();
+
+        Assert.Equal(request.Name, input.Name);
+        Assert.Equal(request.Notes, input.Notes);
+        Assert.Equal(2, response.Page);
+        Assert.Equal(3, response.TotalPages);
+        Assert.Equal(summary.Id, Assert.Single(response.Items).Id);
+    }
+
+    [Fact]
+    public void ServiceMappings_PreserveTransportValues()
+    {
+        var request = new UpdateServiceRequest("Consultation", 45, 750.50m, "TRY");
+        var summary = new ServiceSummary(
+            Guid.NewGuid(),
+            request.Name,
+            request.DurationMinutes,
+            request.Price,
+            request.Currency,
+            true,
+            DateTimeOffset.Parse("2026-08-22T10:00:00Z"),
+            DateTimeOffset.Parse("2026-08-22T11:00:00Z"));
+
+        ServiceInput input = request.ToInput();
+        ServiceResponse response = summary.ToResponse();
+
+        Assert.Equal(request.DurationMinutes, input.DurationMinutes);
+        Assert.Equal(request.Price, response.Price);
+        Assert.Equal(request.Currency, response.Currency);
+        Assert.True(response.IsActive);
+    }
+
+    [Fact]
+    public void EmployeeMappings_PreserveNestedServicesAndUserOptions()
+    {
+        var service = new EmployeeServiceSummary(Guid.NewGuid(), "Consultation", true);
+        var summary = new EmployeeSummary(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Grace",
+            "grace@example.test",
+            null,
+            true,
+            [service],
+            DateTimeOffset.Parse("2026-08-22T10:00:00Z"),
+            DateTimeOffset.Parse("2026-08-22T11:00:00Z"));
+        EmployeeUserOption[] options =
+        [
+            new(Guid.NewGuid(), "Linus", "linus@example.test", "Employee", false),
+        ];
+
+        EmployeeResponse response = summary.ToResponse();
+        IReadOnlyList<EmployeeUserOptionResponse> optionResponses = options.ToResponse();
+
+        Assert.Equal(service.Id, Assert.Single(response.Services).Id);
+        Assert.Equal(options[0].UserId, Assert.Single(optionResponses).UserId);
+    }
+
+    [Fact]
+    public void IdentityMappings_PreserveTenantSelectionAndMembershipReport()
+    {
+        var tenant = new TenantOption(Guid.NewGuid(), "Atlas", "atlas", "Owner");
+        AuthenticationOutcome outcome = AuthenticationOutcome.SelectionRequired([tenant]);
+        var report = new MembershipReport(
+            Total: 3,
+            Active: 2,
+            ByRole: new Dictionary<string, int> { ["Owner"] = 1 });
+
+        AuthenticationResponse authentication = outcome.ToAuthenticationResponse();
+        MembershipReportResponse membershipReport = report.ToResponse();
+
+        Assert.True(authentication.RequiresTenantSelection);
+        Assert.Equal(tenant.Id, Assert.Single(authentication.Tenants).Id);
+        Assert.Equal(report.Total, membershipReport.Total);
+        Assert.Equal(report.ByRole, membershipReport.ByRole);
+    }
+}

@@ -35,7 +35,7 @@ public sealed class MembershipsController : ControllerBase
     {
         IReadOnlyList<MembershipSummary> memberships = await _membershipService.ListAsync(
             cancellationToken);
-        return Ok(memberships.Select(ToResponse).ToList());
+        return Ok(memberships.ToResponse());
     }
 
     [HttpGet("report")]
@@ -45,7 +45,7 @@ public sealed class MembershipsController : ControllerBase
         CancellationToken cancellationToken)
     {
         MembershipReport report = await _membershipService.GetReportAsync(cancellationToken);
-        return Ok(new MembershipReportResponse(report.Total, report.Active, report.ByRole));
+        return Ok(report.ToResponse());
     }
 
     [HttpGet("{membershipId:guid}")]
@@ -63,7 +63,7 @@ public sealed class MembershipsController : ControllerBase
             cancellationToken);
         return membership is null
             ? NotFound()
-            : Ok(ToResponse(membership));
+            : Ok(membership.ToResponse());
     }
 
     [HttpPatch("{membershipId:guid}")]
@@ -90,7 +90,7 @@ public sealed class MembershipsController : ControllerBase
             cancellationToken);
         return membership is null
             ? NotFound()
-            : Ok(ToResponse(membership));
+            : Ok(membership.ToResponse());
     }
 
     [HttpDelete("{membershipId:guid}")]
@@ -111,14 +111,4 @@ public sealed class MembershipsController : ControllerBase
             cancellationToken);
         return archived ? NoContent() : NotFound();
     }
-
-    private static MembershipResponse ToResponse(MembershipSummary membership) =>
-        new(
-            membership.Id,
-            membership.UserId,
-            membership.Email,
-            membership.DisplayName,
-            membership.Role,
-            membership.IsActive,
-            membership.UpdatedAtUtc);
 }

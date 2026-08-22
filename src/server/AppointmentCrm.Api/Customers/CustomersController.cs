@@ -37,7 +37,7 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
             query.ToPageRequest(),
             query.IncludeArchived,
             cancellationToken);
-        return Ok(ToResponse(result));
+        return Ok(result.ToResponse());
     }
 
     [HttpGet("{customerId:guid}", Name = "GetCustomerById")]
@@ -53,7 +53,7 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
         CustomerSummary? customer = await customerService.GetAsync(
             customerId,
             cancellationToken);
-        return customer is null ? NotFound() : Ok(ToResponse(customer));
+        return customer is null ? NotFound() : Ok(customer.ToResponse());
     }
 
     [HttpPost]
@@ -71,12 +71,12 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
         CancellationToken cancellationToken)
     {
         CustomerSummary customer = await customerService.CreateAsync(
-            ToInput(request),
+            request.ToInput(),
             cancellationToken);
         return CreatedAtRoute(
             "GetCustomerById",
             new { customerId = customer.Id },
-            ToResponse(customer));
+            customer.ToResponse());
     }
 
     [HttpPut("{customerId:guid}")]
@@ -99,9 +99,9 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
     {
         CustomerSummary? customer = await customerService.UpdateAsync(
             customerId,
-            ToInput(request),
+            request.ToInput(),
             cancellationToken);
-        return customer is null ? NotFound() : Ok(ToResponse(customer));
+        return customer is null ? NotFound() : Ok(customer.ToResponse());
     }
 
     [HttpDelete("{customerId:guid}")]
@@ -118,30 +118,4 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
         bool archived = await customerService.ArchiveAsync(customerId, cancellationToken);
         return archived ? NoContent() : NotFound();
     }
-
-    private static CustomerInput ToInput(CreateCustomerRequest request) =>
-        new(request.Name, request.Email, request.Phone, request.Notes);
-
-    private static CustomerInput ToInput(UpdateCustomerRequest request) =>
-        new(request.Name, request.Email, request.Phone, request.Notes);
-
-    private static PagedResponse<CustomerResponse> ToResponse(
-        PagedResult<CustomerSummary> result) =>
-        new(
-            result.Items.Select(ToResponse).ToList(),
-            result.Page,
-            result.PageSize,
-            result.TotalCount,
-            result.TotalPages);
-
-    private static CustomerResponse ToResponse(CustomerSummary customer) =>
-        new(
-            customer.Id,
-            customer.Name,
-            customer.Email,
-            customer.Phone,
-            customer.Notes,
-            customer.ArchivedAtUtc,
-            customer.CreatedAtUtc,
-            customer.UpdatedAtUtc);
 }

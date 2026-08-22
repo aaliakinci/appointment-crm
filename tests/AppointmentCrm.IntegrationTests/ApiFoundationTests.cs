@@ -5,6 +5,8 @@ using AppointmentCrm.Contracts;
 using AppointmentCrm.Infrastructure;
 using AppointmentCrm.Infrastructure.Persistence;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -74,6 +76,25 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
         Assert.Contains("/api/v1/customers", document, StringComparison.Ordinal);
         Assert.Contains("/api/v1/services", document, StringComparison.Ordinal);
         Assert.Contains("/api/v1/employees", document, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VersionedProductEndpoints_AreControllerActions()
+    {
+        RouteEndpoint[] endpoints = _factory.Services
+            .GetServices<EndpointDataSource>()
+            .SelectMany(source => source.Endpoints)
+            .OfType<RouteEndpoint>()
+            .Where(endpoint => endpoint.RoutePattern.RawText?
+                .TrimStart('/')
+                .StartsWith("api/v1/", StringComparison.OrdinalIgnoreCase) == true)
+            .ToArray();
+
+        Assert.NotEmpty(endpoints);
+        Assert.All(
+            endpoints,
+            endpoint => Assert.NotNull(
+                endpoint.Metadata.GetMetadata<ControllerActionDescriptor>()));
     }
 
     [Fact]

@@ -39,7 +39,7 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
             query.IsActive,
             query.ServiceId,
             cancellationToken);
-        return Ok(ToResponse(result));
+        return Ok(result.ToResponse());
     }
 
     [HttpGet("user-options")]
@@ -50,14 +50,7 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
     {
         IReadOnlyList<EmployeeUserOption> options = await employeeService.ListUserOptionsAsync(
             cancellationToken);
-        return Ok(options
-            .Select(option => new EmployeeUserOptionResponse(
-                option.UserId,
-                option.DisplayName,
-                option.Email,
-                option.Role,
-                option.IsLinked))
-            .ToList());
+        return Ok(options.ToResponse());
     }
 
     [HttpGet("{employeeId:guid}", Name = "GetEmployeeById")]
@@ -73,7 +66,7 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
         EmployeeSummary? employee = await employeeService.GetAsync(
             employeeId,
             cancellationToken);
-        return employee is null ? NotFound() : Ok(ToResponse(employee));
+        return employee is null ? NotFound() : Ok(employee.ToResponse());
     }
 
     [HttpPost]
@@ -91,13 +84,13 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
         CancellationToken cancellationToken)
     {
         EmployeeSummary employee = await employeeService.CreateAsync(
-            ToInput(request.UserId, request.Name, request.Email, request.Phone),
+            request.ToInput(),
             request.ServiceIds ?? [],
             cancellationToken);
         return CreatedAtRoute(
             "GetEmployeeById",
             new { employeeId = employee.Id },
-            ToResponse(employee));
+            employee.ToResponse());
     }
 
     [HttpPut("{employeeId:guid}")]
@@ -120,9 +113,9 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
     {
         EmployeeSummary? employee = await employeeService.UpdateAsync(
             employeeId,
-            ToInput(request.UserId, request.Name, request.Email, request.Phone),
+            request.ToInput(),
             cancellationToken);
-        return employee is null ? NotFound() : Ok(ToResponse(employee));
+        return employee is null ? NotFound() : Ok(employee.ToResponse());
     }
 
     [HttpPut("{employeeId:guid}/services")]
@@ -147,7 +140,7 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
             employeeId,
             request.ServiceIds ?? [],
             cancellationToken);
-        return employee is null ? NotFound() : Ok(ToResponse(employee));
+        return employee is null ? NotFound() : Ok(employee.ToResponse());
     }
 
     [HttpPost("{employeeId:guid}/activate")]
@@ -183,37 +176,6 @@ public sealed class EmployeesController(IEmployeeManagementService employeeServi
             employeeId,
             isActive,
             cancellationToken);
-        return employee is null ? NotFound() : Ok(ToResponse(employee));
+        return employee is null ? NotFound() : Ok(employee.ToResponse());
     }
-
-    private static EmployeeInput ToInput(
-        Guid? userId,
-        string name,
-        string? email,
-        string? phone) =>
-        new(userId, name, email, phone);
-
-    private static PagedResponse<EmployeeResponse> ToResponse(
-        PagedResult<EmployeeSummary> result) =>
-        new(
-            result.Items.Select(ToResponse).ToList(),
-            result.Page,
-            result.PageSize,
-            result.TotalCount,
-            result.TotalPages);
-
-    private static EmployeeResponse ToResponse(EmployeeSummary employee) =>
-        new(
-            employee.Id,
-            employee.UserId,
-            employee.Name,
-            employee.Email,
-            employee.Phone,
-            employee.IsActive,
-            employee.Services.Select(service => new EmployeeServiceResponse(
-                service.Id,
-                service.Name,
-                service.IsActive)).ToList(),
-            employee.CreatedAtUtc,
-            employee.UpdatedAtUtc);
 }

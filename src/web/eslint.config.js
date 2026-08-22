@@ -57,6 +57,20 @@ export default tseslint.config(
               group: ["@/app/**", "@/pages/**"],
               message: "Features must not depend on the app composition or page layers.",
             },
+            {
+              group: [
+                "@/features/*/api",
+                "@/features/*/api/**",
+                "@/features/*/components",
+                "@/features/*/components/**",
+                "@/features/*/hooks",
+                "@/features/*/hooks/**",
+                "@/features/*/model",
+                "@/features/*/model/**",
+              ],
+              message:
+                "Features must consume another feature through an explicit public entrypoint.",
+            },
           ],
         },
       ],

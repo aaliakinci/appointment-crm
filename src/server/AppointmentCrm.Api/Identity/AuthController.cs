@@ -170,21 +170,11 @@ public sealed class AuthController : ControllerBase
                 "The session is not valid.");
         }
 
-        return Ok(new CurrentIdentityResponse(
-            new AuthenticatedUserResponse(
-                userId,
-                user.FindFirstValue(ClaimTypes.Email) ?? string.Empty,
-                user.FindFirstValue(ClaimTypes.Name) ?? string.Empty),
-            new ActiveTenantResponse(
-                tenantId,
-                user.FindFirstValue(IdentityClaimNames.TenantName) ?? string.Empty,
-                user.FindFirstValue(IdentityClaimNames.TenantSlug) ?? string.Empty,
-                user.FindFirstValue(IdentityClaimNames.TenantCurrency) ?? string.Empty,
-                user.FindFirstValue(IdentityClaimNames.TenantTimeZone) ?? string.Empty,
-                user.FindFirstValue(ClaimTypes.Role) ?? string.Empty,
-                user.FindAll(IdentityClaimNames.Permission).Select(claim => claim.Value).ToList()),
+        return Ok(user.ToCurrentIdentityResponse(
+            userId,
             membershipId,
-            sessionId));
+            sessionId,
+            tenantId));
     }
 
     [HttpGet("tenants")]
@@ -203,7 +193,7 @@ public sealed class AuthController : ControllerBase
         IReadOnlyList<TenantOption> tenants = await _identityService.ListAvailableTenantsAsync(
             userId,
             cancellationToken);
-        return Ok(tenants.Select(ToResponse).ToList());
+        return Ok(tenants.ToResponse());
     }
 
     private ActionResult<AuthenticationResponse> WriteAuthenticationOutcome(
@@ -213,13 +203,7 @@ public sealed class AuthController : ControllerBase
     {
         if (outcome.Status == AuthenticationStatus.TenantSelectionRequired)
         {
-            return Ok(new AuthenticationResponse(
-                true,
-                null,
-                null,
-                null,
-                null,
-                outcome.Tenants.Select(ToResponse).ToList()));
+            return Ok(outcome.ToAuthenticationResponse());
         }
 
         if (outcome.Status != AuthenticationStatus.Authenticated || outcome.Identity is null)
@@ -247,20 +231,7 @@ public sealed class AuthController : ControllerBase
         AppendRefreshCookie(
             identity.RefreshToken,
             identity.RefreshTokenExpiresAtUtc);
-        return Ok(new AuthenticationResponse(
-            false,
-            identity.AccessToken,
-            identity.AccessTokenExpiresAtUtc,
-            new AuthenticatedUserResponse(identity.UserId, identity.Email, identity.DisplayName),
-            new ActiveTenantResponse(
-                identity.TenantId,
-                identity.TenantName,
-                identity.TenantSlug,
-                identity.TenantCurrency,
-                identity.TenantTimeZone,
-                identity.Role,
-                identity.Permissions),
-            []));
+        return Ok(identity.ToAuthenticationResponse());
     }
 
     private void AppendRefreshCookie(string refreshToken, DateTimeOffset expiresAtUtc)
@@ -319,7 +290,4 @@ public sealed class AuthController : ControllerBase
         string claimType,
         out Guid value) =>
         Guid.TryParse(principal.FindFirstValue(claimType), out value);
-
-    private static TenantOptionResponse ToResponse(TenantOption tenant) =>
-        new(tenant.Id, tenant.Name, tenant.Slug, tenant.Role);
 }

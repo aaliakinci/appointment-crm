@@ -37,7 +37,7 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
             query.ToPageRequest(),
             query.IsActive,
             cancellationToken);
-        return Ok(ToResponse(result));
+        return Ok(result.ToResponse());
     }
 
     [HttpGet("{serviceId:guid}", Name = "GetServiceById")]
@@ -51,7 +51,7 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
         CancellationToken cancellationToken)
     {
         ServiceSummary? service = await serviceCatalog.GetAsync(serviceId, cancellationToken);
-        return service is null ? NotFound() : Ok(ToResponse(service));
+        return service is null ? NotFound() : Ok(service.ToResponse());
     }
 
     [HttpPost]
@@ -69,12 +69,12 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
         CancellationToken cancellationToken)
     {
         ServiceSummary service = await serviceCatalog.CreateAsync(
-            ToInput(request),
+            request.ToInput(),
             cancellationToken);
         return CreatedAtRoute(
             "GetServiceById",
             new { serviceId = service.Id },
-            ToResponse(service));
+            service.ToResponse());
     }
 
     [HttpPut("{serviceId:guid}")]
@@ -97,9 +97,9 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
     {
         ServiceSummary? service = await serviceCatalog.UpdateAsync(
             serviceId,
-            ToInput(request),
+            request.ToInput(),
             cancellationToken);
-        return service is null ? NotFound() : Ok(ToResponse(service));
+        return service is null ? NotFound() : Ok(service.ToResponse());
     }
 
     [HttpPost("{serviceId:guid}/activate")]
@@ -135,31 +135,6 @@ public sealed class ServicesController(IServiceCatalogService serviceCatalog) : 
             serviceId,
             isActive,
             cancellationToken);
-        return service is null ? NotFound() : Ok(ToResponse(service));
+        return service is null ? NotFound() : Ok(service.ToResponse());
     }
-
-    private static ServiceInput ToInput(CreateServiceRequest request) =>
-        new(request.Name, request.DurationMinutes, request.Price, request.Currency);
-
-    private static ServiceInput ToInput(UpdateServiceRequest request) =>
-        new(request.Name, request.DurationMinutes, request.Price, request.Currency);
-
-    private static PagedResponse<ServiceResponse> ToResponse(PagedResult<ServiceSummary> result) =>
-        new(
-            result.Items.Select(ToResponse).ToList(),
-            result.Page,
-            result.PageSize,
-            result.TotalCount,
-            result.TotalPages);
-
-    private static ServiceResponse ToResponse(ServiceSummary service) =>
-        new(
-            service.Id,
-            service.Name,
-            service.DurationMinutes,
-            service.Price,
-            service.Currency,
-            service.IsActive,
-            service.CreatedAtUtc,
-            service.UpdatedAtUtc);
 }

@@ -1,8 +1,6 @@
 using System.Reflection;
-using AppointmentCrm.Api.Customers;
-using AppointmentCrm.Api.Employees;
 using AppointmentCrm.Api.Identity;
-using AppointmentCrm.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
@@ -11,14 +9,24 @@ namespace AppointmentCrm.UnitTests.Controllers;
 
 public sealed class ControllerResponseContractTests
 {
-    private static readonly Type[] ControllerTypes =
-    [
-        typeof(AuthController),
-        typeof(MembershipsController),
-        typeof(CustomersController),
-        typeof(ServicesController),
-        typeof(EmployeesController),
-    ];
+    private static readonly Type[] ControllerTypes = typeof(AuthController)
+        .Assembly
+        .GetExportedTypes()
+        .Where(type =>
+            !type.IsAbstract
+            && typeof(ControllerBase).IsAssignableFrom(type))
+        .OrderBy(type => type.FullName, StringComparer.Ordinal)
+        .ToArray();
+
+    [Fact]
+    public void Controllers_AreDiscoveredAndDeclareApiControllerBehavior()
+    {
+        Assert.NotEmpty(ControllerTypes);
+        Assert.All(
+            ControllerTypes,
+            controllerType => Assert.NotNull(
+                controllerType.GetCustomAttribute<ApiControllerAttribute>()));
+    }
 
     [Fact]
     public void HttpActions_UseTypedContractsMatchingTheirSuccessMetadata()
@@ -47,27 +55,32 @@ public sealed class ControllerResponseContractTests
     [Fact]
     public void Controllers_DeclareTheCommonProblemResponses()
     {
-        int[] expectedStatuses =
-        [
-            StatusCodes.Status401Unauthorized,
-            StatusCodes.Status403Forbidden,
-            StatusCodes.Status500InternalServerError,
-        ];
-
         foreach (Type controllerType in ControllerTypes)
         {
             ProducesResponseTypeAttribute[] responses = controllerType
                 .GetCustomAttributes<ProducesResponseTypeAttribute>()
                 .ToArray();
 
-            foreach (int expectedStatus in expectedStatuses)
+            AssertProblemResponse(
+                responses,
+                StatusCodes.Status500InternalServerError);
+
+            if (controllerType.GetCustomAttribute<AuthorizeAttribute>() is not null)
             {
-                ProducesResponseTypeAttribute response = Assert.Single(
-                    responses,
-                    candidate => candidate.StatusCode == expectedStatus);
-                Assert.Equal(typeof(ProblemDetails), response.Type);
+                AssertProblemResponse(responses, StatusCodes.Status401Unauthorized);
+                AssertProblemResponse(responses, StatusCodes.Status403Forbidden);
             }
         }
+    }
+
+    private static void AssertProblemResponse(
+        IEnumerable<ProducesResponseTypeAttribute> responses,
+        int statusCode)
+    {
+        ProducesResponseTypeAttribute response = Assert.Single(
+            responses,
+            candidate => candidate.StatusCode == statusCode);
+        Assert.Equal(typeof(ProblemDetails), response.Type);
     }
 
     private static IEnumerable<MethodInfo> GetHttpActions(Type controllerType) =>
