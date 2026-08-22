@@ -1,7 +1,5 @@
-using AppointmentCrm.Api.Errors;
 using AppointmentCrm.Application.Identity;
 using AppointmentCrm.Contracts;
-using AppointmentCrm.Domain.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -58,16 +56,6 @@ public sealed class MembershipsController : ControllerBase
         UpdateMembershipRequest request,
         CancellationToken cancellationToken)
     {
-        if (!TenantRoles.IsDefined(request.Role))
-        {
-            return ApiProblemResult.CreateValidation(
-                HttpContext,
-                new Dictionary<string, string[]>
-                {
-                    [nameof(request.Role)] = ["Role is not valid."],
-                });
-        }
-
         MembershipSummary? membership = await _membershipService.UpdateAsync(
             membershipId,
             request.Role,

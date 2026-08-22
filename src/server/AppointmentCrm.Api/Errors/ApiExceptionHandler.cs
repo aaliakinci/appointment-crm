@@ -63,6 +63,16 @@ internal sealed class ApiExceptionHandler(
             Status = StatusCodes.Status404NotFound,
             Detail = notFound.Message,
         },
+        ApplicationUnauthorizedException unauthorized => new ProblemDetails
+        {
+            Status = StatusCodes.Status401Unauthorized,
+            Detail = unauthorized.Message,
+        },
+        ApplicationForbiddenException forbidden => new ProblemDetails
+        {
+            Status = StatusCodes.Status403Forbidden,
+            Detail = forbidden.Message,
+        },
         _ => new ProblemDetails
         {
             Status = StatusCodes.Status500InternalServerError,

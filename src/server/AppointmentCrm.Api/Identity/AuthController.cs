@@ -1,12 +1,11 @@
 using System.Security.Claims;
-using AppointmentCrm.Api.Errors;
 using AppointmentCrm.Api.Security;
+using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Identity;
 using AppointmentCrm.Contracts;
 using AppointmentCrm.Infrastructure.Identity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
@@ -20,16 +19,13 @@ public sealed class AuthController : ControllerBase
 {
     private readonly IIdentitySessionService _identityService;
     private readonly IdentityOptions _options;
-    private readonly ProblemDetailsFactory _problemDetailsFactory;
 
     public AuthController(
         IIdentitySessionService identityService,
-        IOptions<IdentityOptions> options,
-        ProblemDetailsFactory problemDetailsFactory)
+        IOptions<IdentityOptions> options)
     {
         _identityService = identityService;
         _options = options.Value;
-        _problemDetailsFactory = problemDetailsFactory;
     }
 
     [HttpPost("login")]
@@ -39,12 +35,6 @@ public sealed class AuthController : ControllerBase
         LoginRequest request,
         CancellationToken cancellationToken)
     {
-        Dictionary<string, string[]>? validation = ValidateLogin(request);
-        if (validation is not null)
-        {
-            return ApiProblemResult.CreateValidation(HttpContext, validation);
-        }
-
         AuthenticationOutcome outcome = await _identityService.LoginAsync(
             request.Email,
             request.Password,
@@ -65,9 +55,8 @@ public sealed class AuthController : ControllerBase
         string? refreshToken = Request.Cookies[_options.RefreshCookieName];
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
-            DeleteRefreshCookie();
-            return ApiProblem(
-                StatusCodes.Status401Unauthorized,
+            ScheduleRefreshCookieDeletion();
+            throw new ApplicationUnauthorizedException(
                 IdentityErrorCodes.InvalidSession,
                 "The session is not valid.");
         }
@@ -84,8 +73,7 @@ public sealed class AuthController : ControllerBase
     {
         if (!TryGetIdentityIds(User, out Guid userId, out _, out Guid sessionId))
         {
-            return ApiProblem(
-                StatusCodes.Status401Unauthorized,
+            throw new ApplicationUnauthorizedException(
                 IdentityErrorCodes.InvalidSession,
                 "The session is not valid.");
         }
@@ -107,8 +95,7 @@ public sealed class AuthController : ControllerBase
     {
         if (!TryGetIdentityIds(User, out Guid userId, out _, out _))
         {
-            return ApiProblem(
-                StatusCodes.Status401Unauthorized,
+            throw new ApplicationUnauthorizedException(
                 IdentityErrorCodes.InvalidSession,
                 "The session is not valid.");
         }
@@ -125,20 +112,9 @@ public sealed class AuthController : ControllerBase
         SwitchTenantRequest request,
         CancellationToken cancellationToken)
     {
-        if (request.TenantId == Guid.Empty)
-        {
-            return ApiProblemResult.CreateValidation(
-                HttpContext,
-                new Dictionary<string, string[]>
-                {
-                    [nameof(request.TenantId)] = ["TenantId is required."],
-                });
-        }
-
         if (!TryGetIdentityIds(User, out Guid userId, out _, out Guid sessionId))
         {
-            return ApiProblem(
-                StatusCodes.Status401Unauthorized,
+            throw new ApplicationUnauthorizedException(
                 IdentityErrorCodes.InvalidSession,
                 "The session is not valid.");
         }
@@ -158,8 +134,7 @@ public sealed class AuthController : ControllerBase
         if (!TryGetIdentityIds(user, out Guid userId, out Guid membershipId, out Guid sessionId)
             || !TryGetGuidClaim(user, IdentityClaimNames.TenantId, out Guid tenantId))
         {
-            return ApiProblem(
-                StatusCodes.Status401Unauthorized,
+            throw new ApplicationUnauthorizedException(
                 IdentityErrorCodes.InvalidSession,
                 "The session is not valid.");
         }
@@ -188,8 +163,7 @@ public sealed class AuthController : ControllerBase
     {
         if (!TryGetIdentityIds(User, out Guid userId, out _, out _))
         {
-            return ApiProblem(
-                StatusCodes.Status401Unauthorized,
+            throw new ApplicationUnauthorizedException(
                 IdentityErrorCodes.InvalidSession,
                 "The session is not valid.");
         }
@@ -220,20 +194,21 @@ public sealed class AuthController : ControllerBase
         {
             if (clearCookieOnFailure)
             {
-                DeleteRefreshCookie();
+                ScheduleRefreshCookieDeletion();
             }
 
-            int status = outcome.Status == AuthenticationStatus.InvalidTenant
-                ? StatusCodes.Status404NotFound
-                : StatusCodes.Status401Unauthorized;
-            return ApiProblem(
-                status,
-                status == StatusCodes.Status404NotFound
-                    ? IdentityErrorCodes.TenantNotAvailable
-                    : failureCode,
-                status == StatusCodes.Status404NotFound
-                    ? "The requested tenant is not available."
-                    : "The credentials or session are not valid.");
+            throw outcome.Status switch
+            {
+                AuthenticationStatus.InvalidTenant => new ApplicationNotFoundException(
+                    IdentityErrorCodes.TenantNotAvailable,
+                    "The requested tenant is not available."),
+                AuthenticationStatus.InvalidCredentials or AuthenticationStatus.InvalidSession =>
+                    new ApplicationUnauthorizedException(
+                        failureCode,
+                        "The credentials or session are not valid."),
+                _ => new InvalidOperationException(
+                    "The authentication service returned an invalid outcome."),
+            };
         }
 
         AuthenticatedIdentity identity = outcome.Identity;
@@ -254,22 +229,6 @@ public sealed class AuthController : ControllerBase
                 identity.Role,
                 identity.Permissions),
             []));
-    }
-
-    private static Dictionary<string, string[]>? ValidateLogin(LoginRequest request)
-    {
-        var errors = new Dictionary<string, string[]>();
-        if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@'))
-        {
-            errors[nameof(request.Email)] = ["A valid email address is required."];
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Password))
-        {
-            errors[nameof(request.Password)] = ["Password is required."];
-        }
-
-        return errors.Count == 0 ? null : errors;
     }
 
     private void AppendRefreshCookie(string refreshToken, DateTimeOffset expiresAtUtc)
@@ -302,6 +261,13 @@ public sealed class AuthController : ControllerBase
             });
     }
 
+    private void ScheduleRefreshCookieDeletion() =>
+        Response.OnStarting(static state =>
+        {
+            ((AuthController)state).DeleteRefreshCookie();
+            return Task.CompletedTask;
+        }, this);
+
     private static bool TryGetIdentityIds(
         ClaimsPrincipal principal,
         out Guid userId,
@@ -325,11 +291,4 @@ public sealed class AuthController : ControllerBase
     private static TenantOptionResponse ToResponse(TenantOption tenant) =>
         new(tenant.Id, tenant.Name, tenant.Slug, tenant.Role);
 
-    private ObjectResult ApiProblem(int status, string code, string detail) =>
-        ApiProblemResult.Create(
-            _problemDetailsFactory,
-            HttpContext,
-            status,
-            code,
-            detail);
 }

@@ -162,6 +162,22 @@ public sealed class IdentitySecurityTests : IClassFixture<ApiFactory>, IAsyncLif
     }
 
     [Fact]
+    public async Task RefreshWithoutCookie_ReturnsInvalidSessionAndExpiresCookie()
+    {
+        using HttpClient client = CreateClient();
+        using HttpResponseMessage response = await client.PostAsync(
+            "/api/v1/auth/refresh",
+            null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        using JsonDocument problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("auth.invalid_session", problem.RootElement.GetProperty("code").GetString());
+        Assert.Contains(
+            response.Headers.GetValues("Set-Cookie"),
+            value => value.Contains("expires=", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task ApiControllerAutomaticValidation_ReturnsStableValidationProblemCode()
     {
         using HttpClient client = CreateClient();
@@ -269,6 +285,15 @@ public sealed class IdentitySecurityTests : IClassFixture<ApiFactory>, IAsyncLif
         using HttpClient client = CreateClient();
         LoginResult atlasLogin = await LoginAsync(client, "owner@demo.local", AtlasTenantId);
 
+        using var emptyTenantRequest = Authorized(
+            HttpMethod.Post,
+            "/api/v1/auth/switch-tenant",
+            atlasLogin.Payload.AccessToken!,
+            new SwitchTenantRequest(Guid.Empty));
+        using HttpResponseMessage emptyTenantResponse = await client.SendAsync(emptyTenantRequest);
+        Assert.Equal(HttpStatusCode.BadRequest, emptyTenantResponse.StatusCode);
+        await AssertProblemCodeAsync(emptyTenantResponse, "common.validation_failed");
+
         using var switchRequest = Authorized(
             HttpMethod.Post,
             "/api/v1/auth/switch-tenant",
@@ -301,6 +326,14 @@ public sealed class IdentitySecurityTests : IClassFixture<ApiFactory>, IAsyncLif
     {
         using HttpClient client = CreateClient();
         LoginResult login = await LoginAsync(client, "owner@demo.local", AtlasTenantId);
+
+        using HttpResponseMessage invalidRoleResponse = await client.SendAsync(Authorized(
+            HttpMethod.Patch,
+            $"/api/v1/memberships/{AtlasOwnerMembershipId}",
+            login.Payload.AccessToken!,
+            new UpdateMembershipRequest("Unknown", true)));
+        Assert.Equal(HttpStatusCode.BadRequest, invalidRoleResponse.StatusCode);
+        await AssertProblemCodeAsync(invalidRoleResponse, "common.validation_failed");
 
         using HttpResponseMessage listResponse = await client.SendAsync(Authorized(
             HttpMethod.Get,
@@ -508,6 +541,16 @@ public sealed class IdentitySecurityTests : IClassFixture<ApiFactory>, IAsyncLif
     }
 
     private static string CookieHeader(string setCookie) => setCookie.Split(';')[0];
+
+    private static async Task AssertProblemCodeAsync(
+        HttpResponseMessage response,
+        string expectedCode)
+    {
+        using JsonDocument problem = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync());
+        Assert.Equal(expectedCode, problem.RootElement.GetProperty("code").GetString());
+        Assert.True(problem.RootElement.TryGetProperty("traceId", out _));
+    }
 
     private async Task ResetDemoStateAsync()
     {

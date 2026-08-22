@@ -34,6 +34,28 @@ public sealed class ApplicationNotFoundException : KnownApplicationException
     }
 }
 
+public sealed class ApplicationUnauthorizedException : KnownApplicationException
+{
+    public ApplicationUnauthorizedException(
+        string code,
+        string message,
+        Exception? innerException = null)
+        : base(code, message, innerException)
+    {
+    }
+}
+
+public sealed class ApplicationForbiddenException : KnownApplicationException
+{
+    public ApplicationForbiddenException(
+        string code,
+        string message,
+        Exception? innerException = null)
+        : base(code, message, innerException)
+    {
+    }
+}
+
 public sealed class ApplicationValidationException : KnownApplicationException
 {
     public ApplicationValidationException(

@@ -67,6 +67,34 @@ public sealed class ApiExceptionHandlerTests
         Assert.Contains("serviceIds", problem.Errors.Keys);
     }
 
+    [Fact]
+    public async Task UnauthorizedException_ReturnsItsStableCodeAndStatus()
+    {
+        var writer = new CapturingProblemDetailsService();
+        var handler = new ApiExceptionHandler(
+            writer,
+            NullLogger<ApiExceptionHandler>.Instance);
+        var httpContext = new DefaultHttpContext
+        {
+            TraceIdentifier = "trace-401",
+        };
+        var exception = new ApplicationUnauthorizedException(
+            "auth.invalid_session",
+            "The session is not valid.");
+
+        bool handled = await handler.TryHandleAsync(
+            httpContext,
+            exception,
+            CancellationToken.None);
+
+        Assert.True(handled);
+        Assert.Equal(StatusCodes.Status401Unauthorized, httpContext.Response.StatusCode);
+        ProblemDetails problem = Assert.IsType<ProblemDetails>(writer.Context?.ProblemDetails);
+        Assert.Equal(StatusCodes.Status401Unauthorized, problem.Status);
+        Assert.Equal("auth.invalid_session", problem.Extensions["code"]);
+        Assert.Equal("The session is not valid.", problem.Detail);
+    }
+
     private sealed class CapturingProblemDetailsService : IProblemDetailsService
     {
         public ProblemDetailsContext? Context { get; private set; }

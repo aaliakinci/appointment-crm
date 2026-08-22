@@ -38,7 +38,12 @@ internal sealed class MembershipService(
     {
         if (!TenantRoles.IsDefined(role))
         {
-            throw new ArgumentOutOfRangeException(nameof(role), role, "Unknown tenant role.");
+            throw new ApplicationValidationException(
+                CommonErrorCodes.ValidationFailed,
+                new Dictionary<string, string[]>
+                {
+                    [nameof(role)] = ["Role is not valid."],
+                });
         }
 
         var membership = await dbContext.TenantMemberships

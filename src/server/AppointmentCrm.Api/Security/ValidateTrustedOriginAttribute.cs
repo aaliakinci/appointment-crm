@@ -1,9 +1,8 @@
 using AppointmentCrm.Api.Errors;
+using AppointmentCrm.Application.Common;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.AspNetCore.Mvc.Infrastructure;
-using Microsoft.AspNetCore.WebUtilities;
 
 namespace AppointmentCrm.Api.Security;
 
@@ -18,8 +17,7 @@ public sealed class ValidateTrustedOriginAttribute : TypeFilterAttribute
 
 internal sealed class ValidateTrustedOriginFilter(
     ICorsPolicyProvider corsPolicyProvider,
-    ICorsService corsService,
-    ProblemDetailsFactory problemDetailsFactory) : IAsyncResourceFilter
+    ICorsService corsService) : IAsyncResourceFilter
 {
     public async Task OnResourceExecutionAsync(
         ResourceExecutingContext context,
@@ -49,17 +47,8 @@ internal sealed class ValidateTrustedOriginFilter(
             return;
         }
 
-        ProblemDetails problem = problemDetailsFactory.CreateProblemDetails(
-            httpContext,
-            StatusCodes.Status403Forbidden,
-            ReasonPhrases.GetReasonPhrase(StatusCodes.Status403Forbidden),
-            detail: "Untrusted request origin.");
-        ApiProblemDetailsDefaults.Apply(httpContext, problem, ApiErrorCodes.UntrustedOrigin);
-        var result = new ObjectResult(problem)
-        {
-            StatusCode = StatusCodes.Status403Forbidden,
-        };
-        result.ContentTypes.Add("application/problem+json");
-        context.Result = result;
+        throw new ApplicationForbiddenException(
+            ApiErrorCodes.UntrustedOrigin,
+            "Untrusted request origin.");
     }
 }
