@@ -1,0 +1,15 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API: Docker container'a attach",
+      "type": "docker",
+      "request": "attach",
+      "platform": "netCore",
+      "containerName": "appointment-crm-api-1",
+      "sourceFileMap": {
+        "/source": "${workspaceFolder}"
+      }
+    }
+  ]
+}

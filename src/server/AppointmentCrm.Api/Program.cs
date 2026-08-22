@@ -77,6 +77,9 @@ builder.Services
     .AddHealthChecks()
     .AddCheck<PostgresReadinessHealthCheck>(
         "postgresql",
+        tags: ["ready"])
+    .AddCheck<TimeZoneReadinessHealthCheck>(
+        "tenant-time-zones",
         tags: ["ready"]);
 
 var allowedOrigins = builder.Configuration

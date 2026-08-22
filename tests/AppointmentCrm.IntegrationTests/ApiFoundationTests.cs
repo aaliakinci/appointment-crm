@@ -61,6 +61,13 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
                 .GetProperty("postgresql")
                 .GetProperty("status")
                 .GetString());
+        Assert.Equal(
+            "Healthy",
+            payload.RootElement
+                .GetProperty("checks")
+                .GetProperty("tenant-time-zones")
+                .GetProperty("status")
+                .GetString());
     }
 
     [Fact]

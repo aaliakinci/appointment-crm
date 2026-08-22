@@ -234,6 +234,16 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            Code = "scheduling.manage",
+                            Name = "scheduling.manage"
+                        },
+                        new
+                        {
+                            Code = "availability.read",
+                            Name = "availability.read"
+                        },
+                        new
+                        {
                             Code = "appointments.manage",
                             Name = "appointments.manage"
                         },
@@ -366,6 +376,16 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleCode = "Owner",
+                            PermissionCode = "scheduling.manage"
+                        },
+                        new
+                        {
+                            RoleCode = "Owner",
+                            PermissionCode = "availability.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Owner",
                             PermissionCode = "appointments.manage"
                         },
                         new
@@ -431,6 +451,16 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleCode = "Manager",
+                            PermissionCode = "scheduling.manage"
+                        },
+                        new
+                        {
+                            RoleCode = "Manager",
+                            PermissionCode = "availability.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Manager",
                             PermissionCode = "appointments.manage"
                         },
                         new
@@ -476,6 +506,11 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleCode = "Receptionist",
+                            PermissionCode = "availability.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Receptionist",
                             PermissionCode = "appointments.manage"
                         },
                         new
@@ -497,6 +532,11 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         {
                             RoleCode = "Employee",
                             PermissionCode = "services.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Employee",
+                            PermissionCode = "availability.read"
                         },
                         new
                         {
@@ -737,6 +777,285 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                     b.ToTable("user_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.DateScheduleOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<Guid?>("EmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("employee_id");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_closed");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Date")
+                        .IsUnique()
+                        .HasDatabaseName("ux_date_overrides_tenant_date")
+                        .HasFilter("employee_id IS NULL");
+
+                    b.HasIndex("TenantId", "EmployeeId", "Date")
+                        .IsUnique()
+                        .HasDatabaseName("ux_date_overrides_employee_date")
+                        .HasFilter("employee_id IS NOT NULL");
+
+                    b.ToTable("date_schedule_overrides", (string)null);
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.DateScheduleOverridePeriod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("EndMinute")
+                        .HasColumnType("integer")
+                        .HasColumnName("end_minute");
+
+                    b.Property<Guid>("OverrideId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("override_id");
+
+                    b.Property<int>("StartMinute")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_minute");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "OverrideId", "StartMinute")
+                        .HasDatabaseName("ix_date_override_periods_lookup");
+
+                    b.ToTable("date_schedule_override_periods", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_date_override_periods_minutes", "start_minute >= 0 AND end_minute <= 1440 AND start_minute < end_minute AND start_minute % 5 = 0 AND end_minute % 5 = 0");
+                        });
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.EmployeeTimeOff", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("employee_id");
+
+                    b.Property<DateTimeOffset>("EndUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("end_utc");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<DateTimeOffset>("StartUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("start_utc");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "EmployeeId", "StartUtc", "EndUtc")
+                        .HasDatabaseName("ix_employee_time_offs_overlap");
+
+                    b.ToTable("employee_time_offs", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_employee_time_offs_range", "start_utc < end_utc");
+                        });
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.WeeklySchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("CurrentVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_version_id");
+
+                    b.Property<Guid?>("EmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("employee_id");
+
+                    b.Property<long>("Revision")
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_weekly_schedules_tenant_default")
+                        .HasFilter("employee_id IS NULL");
+
+                    b.HasIndex("TenantId", "EmployeeId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_weekly_schedules_tenant_employee")
+                        .HasFilter("employee_id IS NOT NULL");
+
+                    b.ToTable("weekly_schedules", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_weekly_schedules_revision", "revision > 0");
+                        });
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.WeeklyScheduleVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActorMembershipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_membership_id");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<string>("ChangeNote")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("change_note");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("mode");
+
+                    b.Property<Guid?>("RestoredFromVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("restored_from_version_id");
+
+                    b.Property<Guid>("ScheduleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("schedule_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<long>("VersionNumber")
+                        .HasColumnType("bigint")
+                        .HasColumnName("version_number");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ActorMembershipId", "ActorUserId");
+
+                    b.HasIndex("TenantId", "ScheduleId", "CreatedAtUtc")
+                        .HasDatabaseName("ix_weekly_schedule_versions_history");
+
+                    b.HasIndex("TenantId", "ScheduleId", "RestoredFromVersionId");
+
+                    b.HasIndex("TenantId", "ScheduleId", "VersionNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ux_weekly_schedule_versions_schedule_number");
+
+                    b.ToTable("weekly_schedule_versions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_weekly_schedule_versions_mode", "mode IN ('Custom', 'Closed', 'Inherited')");
+
+                            t.HasCheckConstraint("ck_weekly_schedule_versions_number", "version_number > 0");
+                        });
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.WeeklyScheduleVersionPeriod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("DayOfWeek")
+                        .HasColumnType("integer")
+                        .HasColumnName("day_of_week");
+
+                    b.Property<int>("EndMinute")
+                        .HasColumnType("integer")
+                        .HasColumnName("end_minute");
+
+                    b.Property<int>("StartMinute")
+                        .HasColumnType("integer")
+                        .HasColumnName("start_minute");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("VersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("version_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "VersionId", "DayOfWeek", "StartMinute")
+                        .HasDatabaseName("ix_weekly_schedule_version_periods_lookup");
+
+                    b.ToTable("weekly_schedule_version_periods", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_weekly_schedule_version_periods_day", "day_of_week BETWEEN 1 AND 7");
+
+                            t.HasCheckConstraint("ck_weekly_schedule_version_periods_minutes", "start_minute >= 0 AND end_minute <= 1440 AND start_minute < end_minute AND start_minute % 5 = 0 AND end_minute % 5 = 0");
+                        });
+                });
+
             modelBuilder.Entity("AppointmentCrm.Domain.Services.Employee", b =>
                 {
                     b.Property<Guid>("Id")
@@ -975,6 +1294,82 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                     b.Navigation("Membership");
                 });
 
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.DateScheduleOverride", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Services.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "EmployeeId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.DateScheduleOverridePeriod", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Scheduling.DateScheduleOverride", "Override")
+                        .WithMany("Periods")
+                        .HasForeignKey("TenantId", "OverrideId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Override");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.EmployeeTimeOff", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Services.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "EmployeeId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.WeeklySchedule", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Services.Employee", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "EmployeeId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.WeeklyScheduleVersion", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Scheduling.WeeklySchedule", "Schedule")
+                        .WithMany("Versions")
+                        .HasForeignKey("TenantId", "ScheduleId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AppointmentCrm.Domain.Identity.TenantMembership", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ActorMembershipId", "ActorUserId")
+                        .HasPrincipalKey("TenantId", "Id", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AppointmentCrm.Domain.Scheduling.WeeklyScheduleVersion", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ScheduleId", "RestoredFromVersionId")
+                        .HasPrincipalKey("TenantId", "ScheduleId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Schedule");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.WeeklyScheduleVersionPeriod", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Scheduling.WeeklyScheduleVersion", "Version")
+                        .WithMany("Periods")
+                        .HasForeignKey("TenantId", "VersionId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Version");
+                });
+
             modelBuilder.Entity("AppointmentCrm.Domain.Services.Employee", b =>
                 {
                     b.HasOne("AppointmentCrm.Domain.Identity.Tenant", null)
@@ -1035,6 +1430,21 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("AppointmentCrm.Domain.Identity.User", b =>
                 {
                     b.Navigation("Memberships");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.DateScheduleOverride", b =>
+                {
+                    b.Navigation("Periods");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.WeeklySchedule", b =>
+                {
+                    b.Navigation("Versions");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.WeeklyScheduleVersion", b =>
+                {
+                    b.Navigation("Periods");
                 });
 
             modelBuilder.Entity("AppointmentCrm.Domain.Services.Employee", b =>

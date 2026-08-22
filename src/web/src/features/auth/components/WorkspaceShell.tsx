@@ -10,12 +10,15 @@ import { useAppTranslation } from "@/i18n";
 
 import { useAuth } from "../model/authContext";
 
+export type WorkspacePath = "/account" | "/customers" | "/services" | "/employees" | "/scheduling";
+
 interface WorkspaceShellProps extends PropsWithChildren {
   readonly id: string;
-  readonly activePath: "/account" | "/customers" | "/services" | "/employees";
+  readonly activePath: WorkspacePath;
+  readonly onNavigate?: (path: WorkspacePath) => void;
 }
 
-export function WorkspaceShell({ activePath, children, id }: WorkspaceShellProps) {
+export function WorkspaceShell({ activePath, children, id, onNavigate }: WorkspaceShellProps) {
   const navigate = useLilyNavigate();
   const { t } = useAppTranslation();
   const { session } = useAuth();
@@ -33,6 +36,9 @@ export function WorkspaceShell({ activePath, children, id }: WorkspaceShellProps
       : null,
     permissions.has("employees.read")
       ? { path: "/employees" as const, label: t("app:navigation.employees") }
+      : null,
+    permissions.has("scheduling.manage")
+      ? { path: "/scheduling" as const, label: t("app:navigation.scheduling") }
       : null,
     { path: "/account" as const, label: t("app:navigation.account") },
   ].filter((item) => item !== null);
@@ -81,7 +87,14 @@ export function WorkspaceShell({ activePath, children, id }: WorkspaceShellProps
                   key={item.path}
                   size="small"
                   variant={activePath === item.path ? "contained" : "text"}
-                  onClick={() => void navigate(item.path)}
+                  onClick={() => {
+                    if (onNavigate) {
+                      onNavigate(item.path);
+                      return;
+                    }
+
+                    void navigate(item.path);
+                  }}
                 >
                   {item.label}
                 </Button>

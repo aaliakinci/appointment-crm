@@ -4,6 +4,7 @@ using AppointmentCrm.Domain.Auditing;
 using AppointmentCrm.Domain.Common;
 using AppointmentCrm.Domain.Customers;
 using AppointmentCrm.Domain.Identity;
+using AppointmentCrm.Domain.Scheduling;
 using AppointmentCrm.Domain.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
@@ -44,10 +45,25 @@ public sealed class AppointmentCrmDbContext : DbContext
 
     public DbSet<EmployeeService> EmployeeServices => Set<EmployeeService>();
 
+    public DbSet<WeeklySchedule> WeeklySchedules => Set<WeeklySchedule>();
+
+    public DbSet<WeeklyScheduleVersion> WeeklyScheduleVersions => Set<WeeklyScheduleVersion>();
+
+    public DbSet<WeeklyScheduleVersionPeriod> WeeklyScheduleVersionPeriods =>
+        Set<WeeklyScheduleVersionPeriod>();
+
+    public DbSet<DateScheduleOverride> DateScheduleOverrides => Set<DateScheduleOverride>();
+
+    public DbSet<DateScheduleOverridePeriod> DateScheduleOverridePeriods =>
+        Set<DateScheduleOverridePeriod>();
+
+    public DbSet<EmployeeTimeOff> EmployeeTimeOffs => Set<EmployeeTimeOff>();
+
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        GuardImmutableScheduleHistory();
         GuardTenantWrites();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
@@ -56,6 +72,7 @@ public sealed class AppointmentCrmDbContext : DbContext
         bool acceptAllChangesOnSuccess,
         CancellationToken cancellationToken = default)
     {
+        GuardImmutableScheduleHistory();
         GuardTenantWrites();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
@@ -70,6 +87,7 @@ public sealed class AppointmentCrmDbContext : DbContext
         ConfigureCustomers(modelBuilder);
         ConfigureServices(modelBuilder);
         ConfigureEmployees(modelBuilder);
+        ConfigureScheduling(modelBuilder);
         ConfigureAuditEntries(modelBuilder);
     }
 
@@ -522,6 +540,293 @@ public sealed class AppointmentCrmDbContext : DbContext
         });
     }
 
+    private void ConfigureScheduling(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<WeeklySchedule>(entity =>
+        {
+            entity.ToTable(
+                "weekly_schedules",
+                table => table.HasCheckConstraint(
+                    "ck_weekly_schedules_revision",
+                    "revision > 0"));
+            entity.HasKey(schedule => schedule.Id);
+            entity.HasAlternateKey(schedule => new { schedule.TenantId, schedule.Id });
+            entity.Property(schedule => schedule.Id).HasColumnName("id");
+            entity.Property(schedule => schedule.TenantId).HasColumnName("tenant_id");
+            entity.Property(schedule => schedule.EmployeeId).HasColumnName("employee_id");
+            entity.Property(schedule => schedule.CurrentVersionId)
+                .HasColumnName("current_version_id");
+            entity.Property(schedule => schedule.Revision).HasColumnName("revision");
+            entity.Property(schedule => schedule.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.Property(schedule => schedule.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.HasIndex(schedule => schedule.TenantId)
+                .IsUnique()
+                .HasFilter("employee_id IS NULL")
+                .HasDatabaseName("ux_weekly_schedules_tenant_default");
+            entity.HasIndex(schedule => new { schedule.TenantId, schedule.EmployeeId })
+                .IsUnique()
+                .HasFilter("employee_id IS NOT NULL")
+                .HasDatabaseName("ux_weekly_schedules_tenant_employee");
+            entity.HasOne<Employee>()
+                .WithMany()
+                .HasForeignKey(schedule => new { schedule.TenantId, schedule.EmployeeId })
+                .HasPrincipalKey(employee => new { employee.TenantId, employee.Id })
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(false);
+            entity.HasMany(schedule => schedule.Versions)
+                .WithOne(version => version.Schedule)
+                .HasForeignKey(version => new { version.TenantId, version.ScheduleId })
+                .HasPrincipalKey(schedule => new { schedule.TenantId, schedule.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.Navigation(schedule => schedule.Versions)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+            entity.HasQueryFilter(schedule =>
+                _tenantContext.IsAvailable && schedule.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<WeeklyScheduleVersion>(entity =>
+        {
+            entity.ToTable(
+                "weekly_schedule_versions",
+                table =>
+                {
+                    table.HasCheckConstraint(
+                        "ck_weekly_schedule_versions_number",
+                        "version_number > 0");
+                    table.HasCheckConstraint(
+                        "ck_weekly_schedule_versions_mode",
+                        "mode IN ('Custom', 'Closed', 'Inherited')");
+                });
+            entity.HasKey(version => version.Id);
+            entity.HasAlternateKey(version => new
+            {
+                version.TenantId,
+                version.ScheduleId,
+                version.Id,
+            });
+            entity.HasAlternateKey(version => new { version.TenantId, version.Id });
+            entity.Property(version => version.Id).HasColumnName("id");
+            entity.Property(version => version.TenantId).HasColumnName("tenant_id");
+            entity.Property(version => version.ScheduleId).HasColumnName("schedule_id");
+            entity.Property(version => version.VersionNumber).HasColumnName("version_number");
+            entity.Property(version => version.Mode)
+                .HasColumnName("mode")
+                .HasConversion<string>()
+                .HasMaxLength(16);
+            entity.Property(version => version.ActorUserId).HasColumnName("actor_user_id");
+            entity.Property(version => version.ActorMembershipId)
+                .HasColumnName("actor_membership_id");
+            entity.Property(version => version.ChangeNote)
+                .HasColumnName("change_note")
+                .HasMaxLength(500);
+            entity.Property(version => version.RestoredFromVersionId)
+                .HasColumnName("restored_from_version_id");
+            entity.Property(version => version.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.HasIndex(version => new
+            {
+                version.TenantId,
+                version.ScheduleId,
+                version.VersionNumber,
+            })
+                .IsUnique()
+                .HasDatabaseName("ux_weekly_schedule_versions_schedule_number");
+            entity.HasIndex(version => new
+            {
+                version.TenantId,
+                version.ScheduleId,
+                version.CreatedAtUtc,
+            }).HasDatabaseName("ix_weekly_schedule_versions_history");
+            entity.HasOne<TenantMembership>()
+                .WithMany()
+                .HasForeignKey(version => new
+                {
+                    version.TenantId,
+                    version.ActorMembershipId,
+                    version.ActorUserId,
+                })
+                .HasPrincipalKey(membership => new
+                {
+                    membership.TenantId,
+                    membership.Id,
+                    membership.UserId,
+                })
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+            entity.HasOne<WeeklyScheduleVersion>()
+                .WithMany()
+                .HasForeignKey(version => new
+                {
+                    version.TenantId,
+                    version.ScheduleId,
+                    version.RestoredFromVersionId,
+                })
+                .HasPrincipalKey(version => new
+                {
+                    version.TenantId,
+                    version.ScheduleId,
+                    version.Id,
+                })
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+            entity.Navigation(version => version.Periods)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+            entity.HasQueryFilter(version =>
+                _tenantContext.IsAvailable && version.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<WeeklyScheduleVersionPeriod>(entity =>
+        {
+            entity.ToTable(
+                "weekly_schedule_version_periods",
+                table =>
+                {
+                    table.HasCheckConstraint(
+                        "ck_weekly_schedule_version_periods_day",
+                        "day_of_week BETWEEN 1 AND 7");
+                    table.HasCheckConstraint(
+                        "ck_weekly_schedule_version_periods_minutes",
+                        "start_minute >= 0 AND end_minute <= 1440 AND start_minute < end_minute AND start_minute % 5 = 0 AND end_minute % 5 = 0");
+                });
+            entity.HasKey(period => period.Id);
+            entity.Property(period => period.Id).HasColumnName("id");
+            entity.Property(period => period.TenantId).HasColumnName("tenant_id");
+            entity.Property(period => period.VersionId).HasColumnName("version_id");
+            entity.Property(period => period.DayOfWeek).HasColumnName("day_of_week");
+            entity.Property(period => period.StartMinute).HasColumnName("start_minute");
+            entity.Property(period => period.EndMinute).HasColumnName("end_minute");
+            entity.HasIndex(period => new
+            {
+                period.TenantId,
+                period.VersionId,
+                period.DayOfWeek,
+                period.StartMinute,
+            }).HasDatabaseName("ix_weekly_schedule_version_periods_lookup");
+            entity.HasOne(period => period.Version)
+                .WithMany(version => version.Periods)
+                .HasForeignKey(period => new { period.TenantId, period.VersionId })
+                .HasPrincipalKey(version => new { version.TenantId, version.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasQueryFilter(period =>
+                _tenantContext.IsAvailable && period.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<DateScheduleOverride>(entity =>
+        {
+            entity.ToTable("date_schedule_overrides");
+            entity.HasKey(scheduleOverride => scheduleOverride.Id);
+            entity.HasAlternateKey(scheduleOverride => new
+            {
+                scheduleOverride.TenantId,
+                scheduleOverride.Id,
+            });
+            entity.Property(scheduleOverride => scheduleOverride.Id).HasColumnName("id");
+            entity.Property(scheduleOverride => scheduleOverride.TenantId)
+                .HasColumnName("tenant_id");
+            entity.Property(scheduleOverride => scheduleOverride.EmployeeId)
+                .HasColumnName("employee_id");
+            entity.Property(scheduleOverride => scheduleOverride.Date).HasColumnName("date");
+            entity.Property(scheduleOverride => scheduleOverride.IsClosed)
+                .HasColumnName("is_closed");
+            entity.Property(scheduleOverride => scheduleOverride.CreatedAtUtc)
+                .HasColumnName("created_at_utc");
+            entity.Property(scheduleOverride => scheduleOverride.UpdatedAtUtc)
+                .HasColumnName("updated_at_utc");
+            entity.HasIndex(scheduleOverride => new
+            {
+                scheduleOverride.TenantId,
+                scheduleOverride.Date,
+            })
+                .IsUnique()
+                .HasFilter("employee_id IS NULL")
+                .HasDatabaseName("ux_date_overrides_tenant_date");
+            entity.HasIndex(scheduleOverride => new
+            {
+                scheduleOverride.TenantId,
+                scheduleOverride.EmployeeId,
+                scheduleOverride.Date,
+            })
+                .IsUnique()
+                .HasFilter("employee_id IS NOT NULL")
+                .HasDatabaseName("ux_date_overrides_employee_date");
+            entity.HasOne<Employee>()
+                .WithMany()
+                .HasForeignKey(scheduleOverride => new
+                {
+                    scheduleOverride.TenantId,
+                    scheduleOverride.EmployeeId,
+                })
+                .HasPrincipalKey(employee => new { employee.TenantId, employee.Id })
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired(false);
+            entity.HasQueryFilter(scheduleOverride =>
+                _tenantContext.IsAvailable
+                && scheduleOverride.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<DateScheduleOverridePeriod>(entity =>
+        {
+            entity.ToTable(
+                "date_schedule_override_periods",
+                table => table.HasCheckConstraint(
+                    "ck_date_override_periods_minutes",
+                    "start_minute >= 0 AND end_minute <= 1440 AND start_minute < end_minute AND start_minute % 5 = 0 AND end_minute % 5 = 0"));
+            entity.HasKey(period => period.Id);
+            entity.Property(period => period.Id).HasColumnName("id");
+            entity.Property(period => period.TenantId).HasColumnName("tenant_id");
+            entity.Property(period => period.OverrideId).HasColumnName("override_id");
+            entity.Property(period => period.StartMinute).HasColumnName("start_minute");
+            entity.Property(period => period.EndMinute).HasColumnName("end_minute");
+            entity.HasIndex(period => new
+            {
+                period.TenantId,
+                period.OverrideId,
+                period.StartMinute,
+            }).HasDatabaseName("ix_date_override_periods_lookup");
+            entity.HasOne(period => period.Override)
+                .WithMany(scheduleOverride => scheduleOverride.Periods)
+                .HasForeignKey(period => new { period.TenantId, period.OverrideId })
+                .HasPrincipalKey(scheduleOverride => new
+                {
+                    scheduleOverride.TenantId,
+                    scheduleOverride.Id,
+                })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasQueryFilter(period =>
+                _tenantContext.IsAvailable && period.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmployeeTimeOff>(entity =>
+        {
+            entity.ToTable(
+                "employee_time_offs",
+                table => table.HasCheckConstraint(
+                    "ck_employee_time_offs_range",
+                    "start_utc < end_utc"));
+            entity.HasKey(timeOff => timeOff.Id);
+            entity.Property(timeOff => timeOff.Id).HasColumnName("id");
+            entity.Property(timeOff => timeOff.TenantId).HasColumnName("tenant_id");
+            entity.Property(timeOff => timeOff.EmployeeId).HasColumnName("employee_id");
+            entity.Property(timeOff => timeOff.StartUtc).HasColumnName("start_utc");
+            entity.Property(timeOff => timeOff.EndUtc).HasColumnName("end_utc");
+            entity.Property(timeOff => timeOff.Reason).HasColumnName("reason").HasMaxLength(500);
+            entity.Property(timeOff => timeOff.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.HasIndex(timeOff => new
+            {
+                timeOff.TenantId,
+                timeOff.EmployeeId,
+                timeOff.StartUtc,
+                timeOff.EndUtc,
+            }).HasDatabaseName("ix_employee_time_offs_overlap");
+            entity.HasOne<Employee>()
+                .WithMany()
+                .HasForeignKey(timeOff => new { timeOff.TenantId, timeOff.EmployeeId })
+                .HasPrincipalKey(employee => new { employee.TenantId, employee.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasQueryFilter(timeOff =>
+                _tenantContext.IsAvailable && timeOff.TenantId == _tenantContext.TenantId);
+        });
+    }
+
     private void GuardTenantWrites()
     {
         IReadOnlyList<EntityEntry> tenantWrites = ChangeTracker
@@ -562,6 +867,18 @@ public sealed class AppointmentCrmDbContext : DbContext
                         "A tenant-owned entity cannot be moved between tenants.");
                 }
             }
+        }
+    }
+
+    private void GuardImmutableScheduleHistory()
+    {
+        bool mutatesHistory = ChangeTracker.Entries().Any(entry =>
+            (entry.Entity is WeeklyScheduleVersion or WeeklyScheduleVersionPeriod)
+            && entry.State is EntityState.Modified or EntityState.Deleted);
+        if (mutatesHistory)
+        {
+            throw new InvalidOperationException(
+                "Published weekly schedule versions are immutable.");
         }
     }
 

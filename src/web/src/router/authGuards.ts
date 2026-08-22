@@ -46,3 +46,8 @@ export class EmployeeReadGuard extends PermissionGuard {
   readonly id = "employees-read";
   readonly permission = "employees.read";
 }
+
+export class SchedulingManageGuard extends PermissionGuard {
+  readonly id = "scheduling-manage";
+  readonly permission = "scheduling.manage";
+}

@@ -77,6 +77,54 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/features/scheduling/components/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/app/**", "@/pages/**"],
+              message: "Features must not depend on the app composition or page layers.",
+            },
+            {
+              group: [
+                "@/features/*/api",
+                "@/features/*/api/**",
+                "@/features/*/components",
+                "@/features/*/components/**",
+                "@/features/*/hooks",
+                "@/features/*/hooks/**",
+                "@/features/*/model",
+                "@/features/*/model/**",
+              ],
+              message:
+                "Features must consume another feature through an explicit public entrypoint.",
+            },
+            {
+              group: ["**/api/schedulingApi"],
+              message:
+                "Scheduling components must invoke use cases through feature-local hooks, not the API client.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/features/scheduling/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ImportSpecifier[imported.name='useLilyBlocker']",
+          message:
+            "useLilyBlocker requires a React Router data router, while AppRouter currently uses the classic hash router.",
+        },
+      ],
+    },
+  },
+  {
     files: ["src/pages/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [

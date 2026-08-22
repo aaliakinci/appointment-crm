@@ -71,4 +71,4 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker compose config --quiet
       - run: docker build --target quality --file deploy/web/Dockerfile .
-      - run: docker compose build api web
+      - run: scripts/container-smoke.sh

@@ -495,6 +495,12 @@ public sealed class MasterDataTests : IClassFixture<ApiFactory>, IAsyncLifetime
         await dbContext.Database.ExecuteSqlRawAsync("""
             TRUNCATE TABLE
                 audit_entries,
+                date_schedule_override_periods,
+                date_schedule_overrides,
+                employee_time_offs,
+                weekly_schedule_version_periods,
+                weekly_schedule_versions,
+                weekly_schedules,
                 employee_services,
                 employees,
                 services,

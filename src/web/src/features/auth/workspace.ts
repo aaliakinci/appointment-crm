@@ -1,1 +1,1 @@
-export { WorkspaceShell } from "./components/WorkspaceShell";
+export { WorkspaceShell, type WorkspacePath } from "./components/WorkspaceShell";

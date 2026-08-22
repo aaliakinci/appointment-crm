@@ -38,6 +38,8 @@ services:
     build:
       context: .
       dockerfile: deploy/api/Dockerfile
+      args:
+        BUILD_CONFIGURATION: ${APPOINTMENTCRM_BUILD_CONFIGURATION:-Release}
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__Postgres: ${ConnectionStrings__Postgres:-Host=postgres;Port=5432;Database=appointment_crm;Username=appointment_crm;Password=change-me-local-only}
@@ -55,6 +57,8 @@ services:
     build:
       context: .
       dockerfile: deploy/api/Dockerfile
+      args:
+        BUILD_CONFIGURATION: ${APPOINTMENTCRM_BUILD_CONFIGURATION:-Release}
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: 8080

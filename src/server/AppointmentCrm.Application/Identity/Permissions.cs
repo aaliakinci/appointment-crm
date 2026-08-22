@@ -15,6 +15,8 @@ public static class Permissions
     public const string ServiceManage = "services.manage";
     public const string EmployeeRead = "employees.read";
     public const string EmployeeManage = "employees.manage";
+    public const string SchedulingManage = "scheduling.manage";
+    public const string AvailabilityRead = "availability.read";
     public const string AppointmentManage = "appointments.manage";
     public const string AppointmentReadOwn = "appointments.read-own";
     public const string ReportingRead = "reporting.read";
@@ -32,6 +34,8 @@ public static class Permissions
         ServiceManage,
         EmployeeRead,
         EmployeeManage,
+        SchedulingManage,
+        AvailabilityRead,
         AppointmentManage,
         AppointmentReadOwn,
         ReportingRead,
@@ -52,6 +56,8 @@ public static class Permissions
             ServiceManage,
             EmployeeRead,
             EmployeeManage,
+            SchedulingManage,
+            AvailabilityRead,
             AppointmentManage,
             ReportingRead,
         ],
@@ -64,6 +70,7 @@ public static class Permissions
             CustomerManage,
             ServiceRead,
             EmployeeRead,
+            AvailabilityRead,
             AppointmentManage,
         ],
         TenantRoles.Employee =>
@@ -72,6 +79,7 @@ public static class Permissions
             TenantSwitch,
             SessionManageOwn,
             ServiceRead,
+            AvailabilityRead,
             AppointmentReadOwn,
         ],
         _ => [],

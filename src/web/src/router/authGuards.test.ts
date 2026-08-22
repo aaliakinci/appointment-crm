@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { AnonymousGuard, AuthenticatedGuard, CustomerReadGuard } from "./authGuards";
+import {
+  AnonymousGuard,
+  AuthenticatedGuard,
+  CustomerReadGuard,
+  SchedulingManageGuard,
+} from "./authGuards";
 
 const location = {
   pathname: "/account",
@@ -43,5 +48,21 @@ describe("authentication route guards", () => {
         state: { authentication: "authenticated", permissions: [] },
       }),
     ).toMatchObject({ allow: false, redirectTo: "/account" });
+  });
+
+  it("keeps scheduling management behind its dedicated permission", () => {
+    const guard = new SchedulingManageGuard();
+    expect(
+      guard.canActivate({
+        location,
+        state: { authentication: "authenticated", permissions: ["scheduling.manage"] },
+      }),
+    ).toMatchObject({ allow: true });
+    expect(
+      guard.canActivate({
+        location,
+        state: { authentication: "authenticated", permissions: ["availability.read"] },
+      }),
+    ).toMatchObject({ allow: false });
   });
 });

@@ -5,6 +5,7 @@ using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Customers;
 using AppointmentCrm.Application.Employees;
 using AppointmentCrm.Application.Identity;
+using AppointmentCrm.Application.Scheduling;
 using AppointmentCrm.Application.Services;
 
 namespace AppointmentCrm.UnitTests.Errors;
@@ -18,6 +19,7 @@ public sealed class ErrorCodeCatalogTests
         typeof(EmployeeErrorCodes),
         typeof(IdentityErrorCodes),
         typeof(ServiceErrorCodes),
+        typeof(SchedulingErrorCodes),
         typeof(ApiErrorCodes),
     ];
 

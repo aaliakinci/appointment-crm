@@ -32,6 +32,8 @@ public abstract class PageQuery : IValidatableObject
 
     protected virtual string DefaultSort => "createdAt";
 
+    protected virtual bool DefaultDescending => false;
+
     protected virtual IReadOnlySet<string> AllowedSorts { get; } = new HashSet<string>(
         ["createdAt"],
         StringComparer.Ordinal);
@@ -41,10 +43,12 @@ public abstract class PageQuery : IValidatableObject
         string selectedSort = string.IsNullOrWhiteSpace(SortBy)
             ? DefaultSort
             : SortBy.Trim();
-        bool descending = string.Equals(
-            SortDirection?.Trim(),
-            "desc",
-            StringComparison.OrdinalIgnoreCase);
+        bool descending = string.IsNullOrWhiteSpace(SortDirection)
+            ? DefaultDescending
+            : string.Equals(
+                SortDirection.Trim(),
+                "desc",
+                StringComparison.OrdinalIgnoreCase);
         return new PageRequest(
             Page,
             PageSize,

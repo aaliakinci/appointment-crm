@@ -2,6 +2,7 @@ using AppointmentCrm.Application.Auditing;
 using AppointmentCrm.Application.Customers;
 using AppointmentCrm.Application.Employees;
 using AppointmentCrm.Application.Identity;
+using AppointmentCrm.Application.Scheduling;
 using AppointmentCrm.Application.Services;
 using AppointmentCrm.Application.Tenancy;
 using AppointmentCrm.Infrastructure.Auditing;
@@ -10,6 +11,7 @@ using AppointmentCrm.Infrastructure.Employees;
 using AppointmentCrm.Infrastructure.Health;
 using AppointmentCrm.Infrastructure.Identity;
 using AppointmentCrm.Infrastructure.Persistence;
+using AppointmentCrm.Infrastructure.Scheduling;
 using AppointmentCrm.Infrastructure.Services;
 using AppointmentCrm.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -76,8 +78,10 @@ public static class DependencyInjection
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
         services.AddScoped<IEmployeeManagementService, EmployeeManagementService>();
+        services.AddScoped<ISchedulingService, SchedulingService>();
         services.AddScoped<DemoDataSeeder>();
         services.AddSingleton<PostgresReadinessHealthCheck>();
+        services.AddSingleton<TimeZoneReadinessHealthCheck>();
 
         return services;
     }

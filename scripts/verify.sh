@@ -49,4 +49,4 @@ npm run build
 
 cd "$repository_root"
 docker compose config --quiet
-docker compose build api web
+scripts/container-smoke.sh

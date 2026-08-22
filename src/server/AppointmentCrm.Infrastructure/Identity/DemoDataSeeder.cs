@@ -1,5 +1,6 @@
 using AppointmentCrm.Domain.Customers;
 using AppointmentCrm.Domain.Identity;
+using AppointmentCrm.Domain.Scheduling;
 using AppointmentCrm.Domain.Services;
 using AppointmentCrm.Infrastructure.Persistence;
 using AppointmentCrm.Infrastructure.Tenancy;
@@ -241,6 +242,29 @@ internal sealed class DemoDataSeeder(
                 tenantId,
                 employee.Id,
                 service.Id,
+                timeProvider.GetUtcNow()));
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        bool weeklyScheduleExists = await dbContext.WeeklySchedules.AnyAsync(
+            schedule => schedule.EmployeeId == null,
+            cancellationToken);
+        if (!weeklyScheduleExists)
+        {
+            Guid actorMembershipId = tenantId == AtlasTenantId
+                ? Guid.Parse("30000000-0000-0000-0000-000000000001")
+                : Guid.Parse("30000000-0000-0000-0000-000000000002");
+            dbContext.WeeklySchedules.Add(WeeklySchedule.Create(
+                Guid.NewGuid(),
+                tenantId,
+                null,
+                WeeklyScheduleVersionMode.Custom,
+                Enumerable.Range(1, 5)
+                    .Select(day => new SchedulePeriodDefinition(day, 9 * 60, 17 * 60))
+                    .ToList(),
+                OwnerUserId,
+                actorMembershipId,
+                "Demo weekly schedule",
                 timeProvider.GetUtcNow()));
             await dbContext.SaveChangesAsync(cancellationToken);
         }

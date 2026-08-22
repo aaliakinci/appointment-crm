@@ -31,16 +31,21 @@ public sealed class PermissionCatalogTests
         Assert.Contains(Permissions.CustomerManage, manager);
         Assert.Contains(Permissions.ServiceManage, manager);
         Assert.Contains(Permissions.EmployeeManage, manager);
+        Assert.Contains(Permissions.SchedulingManage, manager);
+        Assert.Contains(Permissions.AvailabilityRead, manager);
 
         IReadOnlyList<string> receptionist = Permissions.ForRole(TenantRoles.Receptionist);
         Assert.Contains(Permissions.CustomerManage, receptionist);
         Assert.Contains(Permissions.ServiceRead, receptionist);
         Assert.Contains(Permissions.EmployeeRead, receptionist);
+        Assert.Contains(Permissions.AvailabilityRead, receptionist);
+        Assert.DoesNotContain(Permissions.SchedulingManage, receptionist);
         Assert.DoesNotContain(Permissions.ServiceManage, receptionist);
         Assert.DoesNotContain(Permissions.EmployeeManage, receptionist);
 
         IReadOnlyList<string> employee = Permissions.ForRole(TenantRoles.Employee);
         Assert.Contains(Permissions.ServiceRead, employee);
+        Assert.Contains(Permissions.AvailabilityRead, employee);
         Assert.DoesNotContain(Permissions.CustomerRead, employee);
         Assert.DoesNotContain(Permissions.EmployeeRead, employee);
     }
