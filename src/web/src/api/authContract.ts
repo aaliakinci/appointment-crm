@@ -15,6 +15,8 @@ export interface ActiveTenant {
   readonly id: string;
   readonly name: string;
   readonly slug: string;
+  readonly currency: string;
+  readonly timeZone: string;
   readonly role: string;
   readonly permissions: readonly string[];
 }
@@ -95,6 +97,8 @@ function decodeActiveTenant(body: unknown): ActiveTenant {
     id: requireString(value.id, "activeTenant.id"),
     name: requireString(value.name, "activeTenant.name"),
     slug: requireString(value.slug, "activeTenant.slug"),
+    currency: requireString(value.currency, "activeTenant.currency"),
+    timeZone: requireString(value.timeZone, "activeTenant.timeZone"),
     role: requireString(value.role, "activeTenant.role"),
     permissions: requireArray(value.permissions, "activeTenant.permissions").map((permission) =>
       requireString(permission, "permission"),

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Security.Claims;
 using AppointmentCrm.Application.Identity;
+using AppointmentCrm.Infrastructure.Auditing;
 using AppointmentCrm.Infrastructure.Persistence;
 using AppointmentCrm.Infrastructure.Tenancy;
 using Microsoft.AspNetCore.Builder;
@@ -17,6 +18,7 @@ public sealed class SessionValidationMiddleware(RequestDelegate next)
         HttpContext context,
         AppointmentCrmDbContext dbContext,
         TenantContext tenantContext,
+        CurrentActor currentActor,
         TimeProvider timeProvider,
         ILogger<SessionValidationMiddleware> logger)
     {
@@ -26,6 +28,7 @@ public sealed class SessionValidationMiddleware(RequestDelegate next)
                 context.User,
                 dbContext,
                 tenantContext,
+                currentActor,
                 timeProvider.GetUtcNow(),
                 context.RequestAborted);
             if (!valid)
@@ -43,6 +46,7 @@ public sealed class SessionValidationMiddleware(RequestDelegate next)
         ClaimsPrincipal principal,
         AppointmentCrmDbContext dbContext,
         TenantContext tenantContext,
+        CurrentActor currentActor,
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
@@ -97,6 +101,7 @@ public sealed class SessionValidationMiddleware(RequestDelegate next)
         }
 
         tenantContext.SetTenant(tenantId);
+        currentActor.SetActor(userId, membershipId);
         return true;
     }
 

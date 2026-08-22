@@ -1,8 +1,16 @@
+using AppointmentCrm.Application.Auditing;
+using AppointmentCrm.Application.Customers;
+using AppointmentCrm.Application.Employees;
 using AppointmentCrm.Application.Identity;
+using AppointmentCrm.Application.Services;
 using AppointmentCrm.Application.Tenancy;
+using AppointmentCrm.Infrastructure.Auditing;
+using AppointmentCrm.Infrastructure.Customers;
+using AppointmentCrm.Infrastructure.Employees;
 using AppointmentCrm.Infrastructure.Health;
 using AppointmentCrm.Infrastructure.Identity;
 using AppointmentCrm.Infrastructure.Persistence;
+using AppointmentCrm.Infrastructure.Services;
 using AppointmentCrm.Infrastructure.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -44,6 +52,9 @@ public static class DependencyInjection
         services.AddScoped<TenantContext>();
         services.AddScoped<ITenantContext>(provider =>
             provider.GetRequiredService<TenantContext>());
+        services.AddScoped<CurrentActor>();
+        services.AddScoped<ICurrentActor>(provider =>
+            provider.GetRequiredService<CurrentActor>());
         services.AddDbContext<AppointmentCrmDbContext>((serviceProvider, options) =>
         {
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
@@ -61,6 +72,10 @@ public static class DependencyInjection
         services.AddScoped<AccessTokenIssuer>();
         services.AddScoped<IIdentitySessionService, IdentitySessionService>();
         services.AddScoped<IMembershipService, MembershipService>();
+        services.AddScoped<AuditWriter>();
+        services.AddScoped<ICustomerService, CustomerService>();
+        services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
+        services.AddScoped<IEmployeeManagementService, EmployeeManagementService>();
         services.AddScoped<DemoDataSeeder>();
         services.AddSingleton<PostgresReadinessHealthCheck>();
 

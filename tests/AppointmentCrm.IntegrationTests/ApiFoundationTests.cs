@@ -71,6 +71,9 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
         Assert.Contains("/api/v1/auth/login", document, StringComparison.Ordinal);
         Assert.Contains("/api/v1/auth/refresh", document, StringComparison.Ordinal);
         Assert.Contains("/api/v1/memberships", document, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/customers", document, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/services", document, StringComparison.Ordinal);
+        Assert.Contains("/api/v1/employees", document, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -96,6 +99,7 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
         var appliedMigrations = await dbContext.Database.GetAppliedMigrationsAsync();
 
         Assert.Contains(appliedMigrations, migration => migration.EndsWith("_InitialCreate"));
+        Assert.Contains(appliedMigrations, migration => migration.EndsWith("_BusinessMasterData"));
     }
 
     [Fact]

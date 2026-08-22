@@ -27,6 +27,7 @@ export function App() {
 
   const routerState: AppRouterState = {
     authentication: session ? "authenticated" : "anonymous",
+    permissions: session?.activeTenant.permissions ?? [],
   };
 
   return (

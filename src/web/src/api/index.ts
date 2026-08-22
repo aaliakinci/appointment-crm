@@ -1,11 +1,25 @@
 export {
+  archiveCustomer,
+  createCustomer,
+  createEmployee,
+  createService,
   getReadiness,
   listAvailableTenants,
+  listCustomers,
+  listEmployees,
+  listEmployeeUserOptions,
+  listServices,
   login,
   logout,
   refreshAuthentication,
   revokeAllSessions,
   switchTenant,
+  setEmployeeActive,
+  setEmployeeServices,
+  setServiceActive,
+  updateCustomer,
+  updateEmployee,
+  updateService,
 } from "./appApiClient";
 export type {
   ActiveTenant,
@@ -15,3 +29,19 @@ export type {
   TenantOption,
 } from "./authContract";
 export { decodeHealthReport, type HealthReport } from "./healthContract";
+export type {
+  CreateEmployeeInput,
+  Customer,
+  CustomerInput,
+  CustomerQuery,
+  Employee,
+  EmployeeInput,
+  EmployeeQuery,
+  EmployeeService,
+  EmployeeUserOption,
+  PagedResponse,
+  PageQuery,
+  ServiceInput,
+  ServiceOffering,
+  ServiceQuery,
+} from "./masterDataContract";

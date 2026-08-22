@@ -1,7 +1,10 @@
 using AppointmentCrm.Application.Identity;
 using AppointmentCrm.Application.Tenancy;
+using AppointmentCrm.Domain.Auditing;
 using AppointmentCrm.Domain.Common;
+using AppointmentCrm.Domain.Customers;
 using AppointmentCrm.Domain.Identity;
+using AppointmentCrm.Domain.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
@@ -33,6 +36,16 @@ public sealed class AppointmentCrmDbContext : DbContext
 
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
+    public DbSet<Customer> Customers => Set<Customer>();
+
+    public DbSet<ServiceOffering> Services => Set<ServiceOffering>();
+
+    public DbSet<Employee> Employees => Set<Employee>();
+
+    public DbSet<EmployeeService> EmployeeServices => Set<EmployeeService>();
+
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         GuardTenantWrites();
@@ -54,6 +67,10 @@ public sealed class AppointmentCrmDbContext : DbContext
         ConfigureMemberships(modelBuilder);
         ConfigureSessions(modelBuilder);
         ConfigureAuthorizationDefinitions(modelBuilder);
+        ConfigureCustomers(modelBuilder);
+        ConfigureServices(modelBuilder);
+        ConfigureEmployees(modelBuilder);
+        ConfigureAuditEntries(modelBuilder);
     }
 
     private void ConfigureUsers(ModelBuilder modelBuilder)
@@ -136,9 +153,12 @@ public sealed class AppointmentCrmDbContext : DbContext
                 .HasColumnName("created_at_utc");
             entity.Property(membership => membership.UpdatedAtUtc)
                 .HasColumnName("updated_at_utc");
-            entity.HasIndex(membership => new { membership.TenantId, membership.UserId })
-                .IsUnique()
-                .HasDatabaseName("ux_tenant_memberships_tenant_user");
+            entity.HasAlternateKey(membership => new
+            {
+                membership.TenantId,
+                membership.UserId,
+            })
+                .HasName("ak_tenant_memberships_tenant_user");
             entity.HasIndex(membership => new { membership.TenantId, membership.Role })
                 .HasDatabaseName("ix_tenant_memberships_tenant_role");
             entity.HasOne(membership => membership.Tenant)
@@ -254,6 +274,251 @@ public sealed class AppointmentCrmDbContext : DbContext
             entity.HasData(
                 TenantRoles.All.SelectMany(role => Application.Identity.Permissions.ForRole(role).Select(
                     permission => new { RoleCode = role, PermissionCode = permission })));
+        });
+    }
+
+    private void ConfigureCustomers(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Customer>(entity =>
+        {
+            entity.ToTable("customers");
+            entity.HasKey(customer => customer.Id);
+            entity.HasAlternateKey(customer => new { customer.TenantId, customer.Id });
+            entity.Property(customer => customer.Id).HasColumnName("id");
+            entity.Property(customer => customer.TenantId).HasColumnName("tenant_id");
+            entity.Property(customer => customer.Name).HasColumnName("name").HasMaxLength(160);
+            entity.Property(customer => customer.NormalizedName)
+                .HasColumnName("normalized_name")
+                .HasMaxLength(160);
+            entity.Property(customer => customer.Email).HasColumnName("email").HasMaxLength(320);
+            entity.Property(customer => customer.NormalizedEmail)
+                .HasColumnName("normalized_email")
+                .HasMaxLength(320);
+            entity.Property(customer => customer.Phone).HasColumnName("phone").HasMaxLength(40);
+            entity.Property(customer => customer.NormalizedPhone)
+                .HasColumnName("normalized_phone")
+                .HasMaxLength(15);
+            entity.Property(customer => customer.Notes).HasColumnName("notes").HasMaxLength(2_000);
+            entity.Property(customer => customer.ArchivedAtUtc).HasColumnName("archived_at_utc");
+            entity.Property(customer => customer.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.Property(customer => customer.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.HasIndex(customer => new { customer.TenantId, customer.NormalizedEmail })
+                .IsUnique()
+                .HasFilter("normalized_email IS NOT NULL")
+                .HasDatabaseName("ux_customers_tenant_email");
+            entity.HasIndex(customer => new { customer.TenantId, customer.NormalizedPhone })
+                .IsUnique()
+                .HasFilter("normalized_phone IS NOT NULL")
+                .HasDatabaseName("ux_customers_tenant_phone");
+            entity.HasIndex(customer => new
+            {
+                customer.TenantId,
+                customer.ArchivedAtUtc,
+                customer.NormalizedName,
+            })
+                .HasDatabaseName("ix_customers_tenant_active_name");
+            entity.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(customer => customer.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(
+                customer => _tenantContext.IsAvailable
+                    && customer.TenantId == _tenantContext.TenantId);
+        });
+    }
+
+    private void ConfigureServices(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ServiceOffering>(entity =>
+        {
+            entity.ToTable(
+                "services",
+                table =>
+                {
+                    table.HasCheckConstraint(
+                        "ck_services_duration",
+                        "duration_minutes BETWEEN 5 AND 480 AND duration_minutes % 5 = 0");
+                    table.HasCheckConstraint(
+                        "ck_services_price",
+                        "price >= 0 AND price <= 1000000");
+                    table.HasCheckConstraint(
+                        "ck_services_currency",
+                        "currency ~ '^[A-Z]{3}$'");
+                });
+            entity.HasKey(service => service.Id);
+            entity.HasAlternateKey(service => new { service.TenantId, service.Id });
+            entity.Property(service => service.Id).HasColumnName("id");
+            entity.Property(service => service.TenantId).HasColumnName("tenant_id");
+            entity.Property(service => service.Name).HasColumnName("name").HasMaxLength(160);
+            entity.Property(service => service.NormalizedName)
+                .HasColumnName("normalized_name")
+                .HasMaxLength(160);
+            entity.Property(service => service.DurationMinutes).HasColumnName("duration_minutes");
+            entity.Property(service => service.Price)
+                .HasColumnName("price")
+                .HasPrecision(12, 2);
+            entity.Property(service => service.Currency)
+                .HasColumnName("currency")
+                .HasMaxLength(3);
+            entity.Property(service => service.IsActive).HasColumnName("is_active");
+            entity.Property(service => service.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.Property(service => service.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.HasIndex(service => new { service.TenantId, service.NormalizedName })
+                .IsUnique()
+                .HasDatabaseName("ux_services_tenant_name");
+            entity.HasIndex(service => new
+            {
+                service.TenantId,
+                service.IsActive,
+                service.NormalizedName,
+            })
+                .HasDatabaseName("ix_services_tenant_active_name");
+            entity.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(service => service.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(
+                service => _tenantContext.IsAvailable
+                    && service.TenantId == _tenantContext.TenantId);
+        });
+    }
+
+    private void ConfigureEmployees(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Employee>(entity =>
+        {
+            entity.ToTable("employees");
+            entity.HasKey(employee => employee.Id);
+            entity.HasAlternateKey(employee => new { employee.TenantId, employee.Id });
+            entity.Property(employee => employee.Id).HasColumnName("id");
+            entity.Property(employee => employee.TenantId).HasColumnName("tenant_id");
+            entity.Property(employee => employee.UserId).HasColumnName("user_id");
+            entity.Property(employee => employee.Name).HasColumnName("name").HasMaxLength(160);
+            entity.Property(employee => employee.NormalizedName)
+                .HasColumnName("normalized_name")
+                .HasMaxLength(160);
+            entity.Property(employee => employee.Email).HasColumnName("email").HasMaxLength(320);
+            entity.Property(employee => employee.NormalizedEmail)
+                .HasColumnName("normalized_email")
+                .HasMaxLength(320);
+            entity.Property(employee => employee.Phone).HasColumnName("phone").HasMaxLength(40);
+            entity.Property(employee => employee.NormalizedPhone)
+                .HasColumnName("normalized_phone")
+                .HasMaxLength(15);
+            entity.Property(employee => employee.IsActive).HasColumnName("is_active");
+            entity.Property(employee => employee.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.Property(employee => employee.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.HasIndex(employee => new { employee.TenantId, employee.UserId })
+                .IsUnique()
+                .HasFilter("user_id IS NOT NULL")
+                .HasDatabaseName("ux_employees_tenant_user");
+            entity.HasIndex(employee => new
+            {
+                employee.TenantId,
+                employee.IsActive,
+                employee.NormalizedName,
+            })
+                .HasDatabaseName("ix_employees_tenant_active_name");
+            entity.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(employee => employee.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(employee => employee.Membership)
+                .WithMany()
+                .HasForeignKey(employee => new { employee.TenantId, employee.UserId })
+                .HasPrincipalKey(membership => new { membership.TenantId, membership.UserId })
+                .OnDelete(DeleteBehavior.Restrict)
+                .IsRequired(false);
+            entity.HasQueryFilter(
+                employee => _tenantContext.IsAvailable
+                    && employee.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<EmployeeService>(entity =>
+        {
+            entity.ToTable("employee_services");
+            entity.HasKey(assignment => new
+            {
+                assignment.TenantId,
+                assignment.EmployeeId,
+                assignment.ServiceId,
+            });
+            entity.Property(assignment => assignment.TenantId).HasColumnName("tenant_id");
+            entity.Property(assignment => assignment.EmployeeId).HasColumnName("employee_id");
+            entity.Property(assignment => assignment.ServiceId).HasColumnName("service_id");
+            entity.Property(assignment => assignment.AssignedAtUtc)
+                .HasColumnName("assigned_at_utc");
+            entity.HasIndex(assignment => new { assignment.TenantId, assignment.ServiceId })
+                .HasDatabaseName("ix_employee_services_tenant_service");
+            entity.HasOne(assignment => assignment.Employee)
+                .WithMany(employee => employee.ServiceAssignments)
+                .HasForeignKey(assignment => new
+                {
+                    assignment.TenantId,
+                    assignment.EmployeeId,
+                })
+                .HasPrincipalKey(employee => new { employee.TenantId, employee.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(assignment => assignment.Service)
+                .WithMany(service => service.EmployeeAssignments)
+                .HasForeignKey(assignment => new
+                {
+                    assignment.TenantId,
+                    assignment.ServiceId,
+                })
+                .HasPrincipalKey(service => new { service.TenantId, service.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(
+                assignment => _tenantContext.IsAvailable
+                    && assignment.TenantId == _tenantContext.TenantId);
+        });
+    }
+
+    private void ConfigureAuditEntries(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AuditEntry>(entity =>
+        {
+            entity.ToTable("audit_entries");
+            entity.HasKey(entry => entry.Id);
+            entity.Property(entry => entry.Id).HasColumnName("id");
+            entity.Property(entry => entry.TenantId).HasColumnName("tenant_id");
+            entity.Property(entry => entry.ActorUserId).HasColumnName("actor_user_id");
+            entity.Property(entry => entry.ActorMembershipId)
+                .HasColumnName("actor_membership_id");
+            entity.Property(entry => entry.Action).HasColumnName("action").HasMaxLength(80);
+            entity.Property(entry => entry.TargetType)
+                .HasColumnName("target_type")
+                .HasMaxLength(80);
+            entity.Property(entry => entry.TargetId).HasColumnName("target_id");
+            entity.Property(entry => entry.Summary).HasColumnName("summary").HasMaxLength(1_000);
+            entity.Property(entry => entry.OccurredAtUtc).HasColumnName("occurred_at_utc");
+            entity.HasIndex(entry => new { entry.TenantId, entry.OccurredAtUtc })
+                .HasDatabaseName("ix_audit_entries_tenant_occurred");
+            entity.HasIndex(entry => new
+            {
+                entry.TenantId,
+                entry.TargetType,
+                entry.TargetId,
+            })
+                .HasDatabaseName("ix_audit_entries_tenant_target");
+            entity.HasOne<TenantMembership>()
+                .WithMany()
+                .HasForeignKey(entry => new
+                {
+                    entry.TenantId,
+                    entry.ActorMembershipId,
+                    entry.ActorUserId,
+                })
+                .HasPrincipalKey(membership => new
+                {
+                    membership.TenantId,
+                    membership.Id,
+                    membership.UserId,
+                })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(
+                entry => _tenantContext.IsAvailable
+                    && entry.TenantId == _tenantContext.TenantId);
         });
     }
 

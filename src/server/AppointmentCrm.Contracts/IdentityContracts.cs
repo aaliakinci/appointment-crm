@@ -22,6 +22,8 @@ public sealed record ActiveTenantResponse(
     Guid Id,
     string Name,
     string Slug,
+    string Currency,
+    string TimeZone,
     string Role,
     IReadOnlyList<string> Permissions);
 

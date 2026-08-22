@@ -22,6 +22,143 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("AppointmentCrm.Domain.Auditing.AuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("action");
+
+                    b.Property<Guid>("ActorMembershipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_membership_id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<DateTimeOffset>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at_utc");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("summary");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("target_type");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "OccurredAtUtc")
+                        .HasDatabaseName("ix_audit_entries_tenant_occurred");
+
+                    b.HasIndex("TenantId", "ActorMembershipId", "ActorUserId");
+
+                    b.HasIndex("TenantId", "TargetType", "TargetId")
+                        .HasDatabaseName("ix_audit_entries_tenant_target");
+
+                    b.ToTable("audit_entries", (string)null);
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Customers.Customer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset?>("ArchivedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("archived_at_utc");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("normalized_email");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<string>("NormalizedPhone")
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)")
+                        .HasColumnName("normalized_phone");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("phone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "NormalizedEmail")
+                        .IsUnique()
+                        .HasDatabaseName("ux_customers_tenant_email")
+                        .HasFilter("normalized_email IS NOT NULL");
+
+                    b.HasIndex("TenantId", "NormalizedPhone")
+                        .IsUnique()
+                        .HasDatabaseName("ux_customers_tenant_phone")
+                        .HasFilter("normalized_phone IS NOT NULL");
+
+                    b.HasIndex("TenantId", "ArchivedAtUtc", "NormalizedName")
+                        .HasDatabaseName("ix_customers_tenant_active_name");
+
+                    b.ToTable("customers", (string)null);
+                });
+
             modelBuilder.Entity("AppointmentCrm.Domain.Identity.PermissionDefinition", b =>
                 {
                     b.Property<string>("Code")
@@ -67,8 +204,33 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            Code = "customers.read",
+                            Name = "customers.read"
+                        },
+                        new
+                        {
                             Code = "customers.manage",
                             Name = "customers.manage"
+                        },
+                        new
+                        {
+                            Code = "services.read",
+                            Name = "services.read"
+                        },
+                        new
+                        {
+                            Code = "services.manage",
+                            Name = "services.manage"
+                        },
+                        new
+                        {
+                            Code = "employees.read",
+                            Name = "employees.read"
+                        },
+                        new
+                        {
+                            Code = "employees.manage",
+                            Name = "employees.manage"
                         },
                         new
                         {
@@ -174,7 +336,32 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleCode = "Owner",
+                            PermissionCode = "customers.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Owner",
                             PermissionCode = "customers.manage"
+                        },
+                        new
+                        {
+                            RoleCode = "Owner",
+                            PermissionCode = "services.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Owner",
+                            PermissionCode = "services.manage"
+                        },
+                        new
+                        {
+                            RoleCode = "Owner",
+                            PermissionCode = "employees.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Owner",
+                            PermissionCode = "employees.manage"
                         },
                         new
                         {
@@ -214,7 +401,32 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleCode = "Manager",
+                            PermissionCode = "customers.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Manager",
                             PermissionCode = "customers.manage"
+                        },
+                        new
+                        {
+                            RoleCode = "Manager",
+                            PermissionCode = "services.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Manager",
+                            PermissionCode = "services.manage"
+                        },
+                        new
+                        {
+                            RoleCode = "Manager",
+                            PermissionCode = "employees.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Manager",
+                            PermissionCode = "employees.manage"
                         },
                         new
                         {
@@ -244,7 +456,22 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleCode = "Receptionist",
+                            PermissionCode = "customers.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Receptionist",
                             PermissionCode = "customers.manage"
+                        },
+                        new
+                        {
+                            RoleCode = "Receptionist",
+                            PermissionCode = "services.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Receptionist",
+                            PermissionCode = "employees.read"
                         },
                         new
                         {
@@ -265,6 +492,11 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         {
                             RoleCode = "Employee",
                             PermissionCode = "sessions.manage-own"
+                        },
+                        new
+                        {
+                            RoleCode = "Employee",
+                            PermissionCode = "services.read"
                         },
                         new
                         {
@@ -364,14 +596,13 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasAlternateKey("TenantId", "UserId")
+                        .HasName("ak_tenant_memberships_tenant_user");
+
                     b.HasIndex("UserId");
 
                     b.HasIndex("TenantId", "Role")
                         .HasDatabaseName("ix_tenant_memberships_tenant_role");
-
-                    b.HasIndex("TenantId", "UserId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_tenant_memberships_tenant_user");
 
                     b.ToTable("tenant_memberships", null, t =>
                         {
@@ -506,6 +737,192 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                     b.ToTable("user_sessions", (string)null);
                 });
 
+            modelBuilder.Entity("AppointmentCrm.Domain.Services.Employee", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("email");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)")
+                        .HasColumnName("normalized_email");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<string>("NormalizedPhone")
+                        .HasMaxLength(15)
+                        .HasColumnType("character varying(15)")
+                        .HasColumnName("normalized_phone");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("phone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_employees_tenant_user")
+                        .HasFilter("user_id IS NOT NULL");
+
+                    b.HasIndex("TenantId", "IsActive", "NormalizedName")
+                        .HasDatabaseName("ix_employees_tenant_active_name");
+
+                    b.ToTable("employees", (string)null);
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Services.EmployeeService", b =>
+                {
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("employee_id");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<DateTimeOffset>("AssignedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("assigned_at_utc");
+
+                    b.HasKey("TenantId", "EmployeeId", "ServiceId");
+
+                    b.HasIndex("TenantId", "ServiceId")
+                        .HasDatabaseName("ix_employee_services_tenant_service");
+
+                    b.ToTable("employee_services", (string)null);
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Services.ServiceOffering", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("currency");
+
+                    b.Property<int>("DurationMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_minutes");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("normalized_name");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("price");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("ux_services_tenant_name");
+
+                    b.HasIndex("TenantId", "IsActive", "NormalizedName")
+                        .HasDatabaseName("ix_services_tenant_active_name");
+
+                    b.ToTable("services", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_services_currency", "currency ~ '^[A-Z]{3}$'");
+
+                            t.HasCheckConstraint("ck_services_duration", "duration_minutes BETWEEN 5 AND 480 AND duration_minutes % 5 = 0");
+
+                            t.HasCheckConstraint("ck_services_price", "price >= 0 AND price <= 1000000");
+                        });
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Auditing.AuditEntry", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Identity.TenantMembership", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ActorMembershipId", "ActorUserId")
+                        .HasPrincipalKey("TenantId", "Id", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Customers.Customer", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Identity.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("AppointmentCrm.Domain.Identity.RolePermission", b =>
                 {
                     b.HasOne("AppointmentCrm.Domain.Identity.PermissionDefinition", null)
@@ -558,6 +975,53 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                     b.Navigation("Membership");
                 });
 
+            modelBuilder.Entity("AppointmentCrm.Domain.Services.Employee", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Identity.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AppointmentCrm.Domain.Identity.TenantMembership", "Membership")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "UserId")
+                        .HasPrincipalKey("TenantId", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Membership");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Services.EmployeeService", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Services.Employee", "Employee")
+                        .WithMany("ServiceAssignments")
+                        .HasForeignKey("TenantId", "EmployeeId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AppointmentCrm.Domain.Services.ServiceOffering", "Service")
+                        .WithMany("EmployeeAssignments")
+                        .HasForeignKey("TenantId", "ServiceId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Services.ServiceOffering", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Identity.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("AppointmentCrm.Domain.Identity.Tenant", b =>
                 {
                     b.Navigation("Memberships");
@@ -571,6 +1035,16 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("AppointmentCrm.Domain.Identity.User", b =>
                 {
                     b.Navigation("Memberships");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Services.Employee", b =>
+                {
+                    b.Navigation("ServiceAssignments");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Services.ServiceOffering", b =>
+                {
+                    b.Navigation("EmployeeAssignments");
                 });
 #pragma warning restore 612, 618
         }

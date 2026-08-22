@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { AnonymousGuard, AuthenticatedGuard } from "./authGuards";
+import { AnonymousGuard, AuthenticatedGuard, CustomerReadGuard } from "./authGuards";
 
 const location = {
   pathname: "/account",
@@ -15,7 +15,7 @@ describe("authentication route guards", () => {
     expect(
       new AuthenticatedGuard().canActivate({
         location,
-        state: { authentication: "anonymous" },
+        state: { authentication: "anonymous", permissions: [] },
       }),
     ).toMatchObject({ allow: false, redirectTo: "/login" });
   });
@@ -24,7 +24,23 @@ describe("authentication route guards", () => {
     expect(
       new AnonymousGuard().canActivate({
         location,
-        state: { authentication: "authenticated" },
+        state: { authentication: "authenticated", permissions: [] },
+      }),
+    ).toMatchObject({ allow: false, redirectTo: "/account" });
+  });
+
+  it("allows only sessions carrying the route permission", () => {
+    const guard = new CustomerReadGuard();
+    expect(
+      guard.canActivate({
+        location,
+        state: { authentication: "authenticated", permissions: ["customers.read"] },
+      }),
+    ).toMatchObject({ allow: true });
+    expect(
+      guard.canActivate({
+        location,
+        state: { authentication: "authenticated", permissions: [] },
       }),
     ).toMatchObject({ allow: false, redirectTo: "/account" });
   });

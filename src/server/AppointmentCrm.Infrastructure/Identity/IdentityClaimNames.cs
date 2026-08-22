@@ -5,6 +5,8 @@ public static class IdentityClaimNames
     public const string TenantId = "tenant_id";
     public const string TenantName = "tenant_name";
     public const string TenantSlug = "tenant_slug";
+    public const string TenantCurrency = "tenant_currency";
+    public const string TenantTimeZone = "tenant_time_zone";
     public const string MembershipId = "membership_id";
     public const string SessionId = "session_id";
     public const string Permission = "permission";

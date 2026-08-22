@@ -11,6 +11,27 @@ import {
   type TenantOption,
 } from "./authContract";
 import { decodeHealthReport, type HealthReport } from "./healthContract";
+import {
+  decodeCustomer,
+  decodeCustomerPage,
+  decodeEmployee,
+  decodeEmployeePage,
+  decodeEmployeeUserOptions,
+  decodeService,
+  decodeServicePage,
+  type CreateEmployeeInput,
+  type Customer,
+  type CustomerInput,
+  type CustomerQuery,
+  type Employee,
+  type EmployeeInput,
+  type EmployeeQuery,
+  type EmployeeUserOption,
+  type PagedResponse,
+  type ServiceInput,
+  type ServiceOffering,
+  type ServiceQuery,
+} from "./masterDataContract";
 
 const configuredApiBaseUrl: unknown = import.meta.env.VITE_APPOINTMENT_CRM_API_URL;
 let recoveryRefreshPromise: Promise<void> | null = null;
@@ -145,4 +166,154 @@ export function listAvailableTenants(signal?: AbortSignal): Promise<readonly Ten
     decode: decodeTenantOptions,
     metadata: { operationName: "identity.list-tenants" },
   });
+}
+
+export function listCustomers(
+  query: CustomerQuery,
+  signal?: AbortSignal,
+): Promise<PagedResponse<Customer>> {
+  return appApiClient.getData<PagedResponse<Customer>>("/api/v1/customers", {
+    signal,
+    params: toParams(query),
+    decode: decodeCustomerPage,
+    metadata: { operationName: "customers.list" },
+  });
+}
+
+export function createCustomer(input: CustomerInput): Promise<Customer> {
+  return appApiClient.postData<Customer, CustomerInput>("/api/v1/customers", input, {
+    decode: decodeCustomer,
+    metadata: { operationName: "customers.create", replay: "deny" },
+  });
+}
+
+export function updateCustomer(customerId: string, input: CustomerInput): Promise<Customer> {
+  return appApiClient.putData<Customer, CustomerInput>(
+    `/api/v1/customers/${encodeURIComponent(customerId)}`,
+    input,
+    {
+      decode: decodeCustomer,
+      metadata: { operationName: "customers.update", replay: "deny" },
+    },
+  );
+}
+
+export function archiveCustomer(customerId: string): Promise<void> {
+  return appApiClient.deleteData(`/api/v1/customers/${encodeURIComponent(customerId)}`, {
+    metadata: { operationName: "customers.archive", replay: "deny" },
+  });
+}
+
+export function listServices(
+  query: ServiceQuery,
+  signal?: AbortSignal,
+): Promise<PagedResponse<ServiceOffering>> {
+  return appApiClient.getData<PagedResponse<ServiceOffering>>("/api/v1/services", {
+    signal,
+    params: toParams(query),
+    decode: decodeServicePage,
+    metadata: { operationName: "services.list" },
+  });
+}
+
+export function createService(input: ServiceInput): Promise<ServiceOffering> {
+  return appApiClient.postData<ServiceOffering, ServiceInput>("/api/v1/services", input, {
+    decode: decodeService,
+    metadata: { operationName: "services.create", replay: "deny" },
+  });
+}
+
+export function updateService(serviceId: string, input: ServiceInput): Promise<ServiceOffering> {
+  return appApiClient.putData<ServiceOffering, ServiceInput>(
+    `/api/v1/services/${encodeURIComponent(serviceId)}`,
+    input,
+    {
+      decode: decodeService,
+      metadata: { operationName: "services.update", replay: "deny" },
+    },
+  );
+}
+
+export function setServiceActive(serviceId: string, isActive: boolean): Promise<ServiceOffering> {
+  const operation = isActive ? "activate" : "deactivate";
+  return appApiClient.postData<ServiceOffering, Record<string, never>>(
+    `/api/v1/services/${encodeURIComponent(serviceId)}/${operation}`,
+    {},
+    {
+      decode: decodeService,
+      metadata: { operationName: `services.${operation}`, replay: "deny" },
+    },
+  );
+}
+
+export function listEmployees(
+  query: EmployeeQuery,
+  signal?: AbortSignal,
+): Promise<PagedResponse<Employee>> {
+  return appApiClient.getData<PagedResponse<Employee>>("/api/v1/employees", {
+    signal,
+    params: toParams(query),
+    decode: decodeEmployeePage,
+    metadata: { operationName: "employees.list" },
+  });
+}
+
+export function createEmployee(input: CreateEmployeeInput): Promise<Employee> {
+  return appApiClient.postData<Employee, CreateEmployeeInput>("/api/v1/employees", input, {
+    decode: decodeEmployee,
+    metadata: { operationName: "employees.create", replay: "deny" },
+  });
+}
+
+export function updateEmployee(employeeId: string, input: EmployeeInput): Promise<Employee> {
+  return appApiClient.putData<Employee, EmployeeInput>(
+    `/api/v1/employees/${encodeURIComponent(employeeId)}`,
+    input,
+    {
+      decode: decodeEmployee,
+      metadata: { operationName: "employees.update", replay: "deny" },
+    },
+  );
+}
+
+export function setEmployeeServices(
+  employeeId: string,
+  serviceIds: readonly string[],
+): Promise<Employee> {
+  return appApiClient.putData<Employee, { readonly serviceIds: readonly string[] }>(
+    `/api/v1/employees/${encodeURIComponent(employeeId)}/services`,
+    { serviceIds },
+    {
+      decode: decodeEmployee,
+      metadata: { operationName: "employees.set-services", replay: "deny" },
+    },
+  );
+}
+
+export function setEmployeeActive(employeeId: string, isActive: boolean): Promise<Employee> {
+  const operation = isActive ? "activate" : "deactivate";
+  return appApiClient.postData<Employee, Record<string, never>>(
+    `/api/v1/employees/${encodeURIComponent(employeeId)}/${operation}`,
+    {},
+    {
+      decode: decodeEmployee,
+      metadata: { operationName: `employees.${operation}`, replay: "deny" },
+    },
+  );
+}
+
+export function listEmployeeUserOptions(
+  signal?: AbortSignal,
+): Promise<readonly EmployeeUserOption[]> {
+  return appApiClient.getData<readonly EmployeeUserOption[]>("/api/v1/employees/user-options", {
+    signal,
+    decode: decodeEmployeeUserOptions,
+    metadata: { operationName: "employees.list-user-options" },
+  });
+}
+
+function toParams<T extends object>(query: T): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(query).filter(([, value]) => value !== undefined && value !== ""),
+  );
 }

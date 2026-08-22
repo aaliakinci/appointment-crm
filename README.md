@@ -15,6 +15,9 @@
 - Server-side session validation, refresh-token reuse detection, and immediate invalidation after user or role changes
 - Role and permission policies for owner, manager, receptionist, and employee access
 - Tenant query filters, write guards, and database constraints that prevent cross-tenant membership access
+- Tenant-scoped customer, service, and employee management through ASP.NET Core controllers and Lily UI list/form/detail screens
+- Bounded server-side pagination, search, filtering, sorting, customer contact normalization, service pricing/duration validation, and employee-service assignments
+- Same-tenant account-to-employee linking and actor-attributed audit records for critical create, archive, and activation changes
 
 ## Local development
 

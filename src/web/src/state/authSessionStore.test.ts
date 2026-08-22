@@ -13,6 +13,8 @@ const authenticatedResponse: AuthenticationResponse = {
     id: "tenant-a",
     name: "Atlas",
     slug: "atlas",
+    currency: "TRY",
+    timeZone: "Europe/Istanbul",
     role: "Owner",
     permissions: ["tenant.read"],
   },

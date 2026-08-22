@@ -9,7 +9,7 @@ import { Typography } from "@lily_platform/lily_ui/ui/atoms/Typography";
 import { useEffect, useState } from "react";
 
 import type { TenantOption } from "@/api";
-import { PublicShell } from "@/components";
+import { WorkspaceShell } from "@/components";
 import { useAppTranslation } from "@/i18n";
 import { useAuth } from "@/state";
 
@@ -83,19 +83,7 @@ export function AccountPage({ id }: AccountPageProps) {
   }
 
   return (
-    <PublicShell
-      id={`${id}.shell`}
-      activePath="/account"
-      secondaryPath="/account"
-      brandLabel={t("app:brand")}
-      statusLabel={t("app:navigation.status")}
-      loginLabel={t("app:navigation.account")}
-      skipToContentLabel={t("app:shell.skipToContent")}
-      portfolioNotice={t("app:shell.portfolioNotice")}
-      onNavigate={(path) => {
-        void navigate(path);
-      }}
-    >
+    <WorkspaceShell id={`${id}.shell`} activePath="/account">
       <Stack id={`${id}.content`} spacing={4} sx={{ maxWidth: 760 }}>
         <Box id={`${id}.heading`}>
           <Typography
@@ -194,6 +182,6 @@ export function AccountPage({ id }: AccountPageProps) {
           </Button>
         </Stack>
       </Stack>
-    </PublicShell>
+    </WorkspaceShell>
   );
 }

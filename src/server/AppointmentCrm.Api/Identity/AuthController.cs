@@ -150,6 +150,8 @@ public sealed class AuthController : ControllerBase
                 tenantId,
                 user.FindFirstValue(IdentityClaimNames.TenantName) ?? string.Empty,
                 user.FindFirstValue(IdentityClaimNames.TenantSlug) ?? string.Empty,
+                user.FindFirstValue(IdentityClaimNames.TenantCurrency) ?? string.Empty,
+                user.FindFirstValue(IdentityClaimNames.TenantTimeZone) ?? string.Empty,
                 user.FindFirstValue(ClaimTypes.Role) ?? string.Empty,
                 user.FindAll(IdentityClaimNames.Permission).Select(claim => claim.Value).ToList()),
             membershipId,
@@ -217,6 +219,8 @@ public sealed class AuthController : ControllerBase
                 identity.TenantId,
                 identity.TenantName,
                 identity.TenantSlug,
+                identity.TenantCurrency,
+                identity.TenantTimeZone,
                 identity.Role,
                 identity.Permissions),
             []));

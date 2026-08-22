@@ -313,6 +313,8 @@ internal sealed class IdentitySessionService(
             tenant.Id,
             tenant.Name,
             tenant.Slug,
+            tenant.Currency,
+            tenant.TimeZone,
             membership.Id,
             membership.Role,
             Permissions.ForRole(membership.Role),

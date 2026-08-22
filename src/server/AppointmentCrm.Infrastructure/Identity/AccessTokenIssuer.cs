@@ -30,6 +30,8 @@ internal sealed class AccessTokenIssuer(
             new(IdentityClaimNames.TenantId, tenant.Id.ToString()),
             new(IdentityClaimNames.TenantName, tenant.Name),
             new(IdentityClaimNames.TenantSlug, tenant.Slug),
+            new(IdentityClaimNames.TenantCurrency, tenant.Currency),
+            new(IdentityClaimNames.TenantTimeZone, tenant.TimeZone),
             new(IdentityClaimNames.MembershipId, membership.Id.ToString()),
             new(IdentityClaimNames.SessionId, session.Id.ToString()),
             new(
