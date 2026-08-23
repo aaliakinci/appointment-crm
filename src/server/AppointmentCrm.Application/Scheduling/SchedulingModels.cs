@@ -83,7 +83,8 @@ public sealed record TimeOffSummary(
 public sealed record AvailabilityQuery(
     DateOnly Date,
     Guid EmployeeId,
-    Guid ServiceId);
+    Guid ServiceId,
+    Guid? ExcludeAppointmentId = null);
 
 public sealed record AvailabilitySlot(
     DateTimeOffset StartUtc,

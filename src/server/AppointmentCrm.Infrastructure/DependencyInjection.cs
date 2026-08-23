@@ -1,3 +1,4 @@
+using AppointmentCrm.Application.Appointments;
 using AppointmentCrm.Application.Auditing;
 using AppointmentCrm.Application.Customers;
 using AppointmentCrm.Application.Employees;
@@ -5,6 +6,7 @@ using AppointmentCrm.Application.Identity;
 using AppointmentCrm.Application.Scheduling;
 using AppointmentCrm.Application.Services;
 using AppointmentCrm.Application.Tenancy;
+using AppointmentCrm.Infrastructure.Appointments;
 using AppointmentCrm.Infrastructure.Auditing;
 using AppointmentCrm.Infrastructure.Customers;
 using AppointmentCrm.Infrastructure.Employees;
@@ -75,6 +77,7 @@ public static class DependencyInjection
         services.AddScoped<IIdentitySessionService, IdentitySessionService>();
         services.AddScoped<IMembershipService, MembershipService>();
         services.AddScoped<AuditWriter>();
+        services.AddScoped<IAppointmentService, AppointmentService>();
         services.AddScoped<ICustomerService, CustomerService>();
         services.AddScoped<IServiceCatalogService, ServiceCatalogService>();
         services.AddScoped<IEmployeeManagementService, EmployeeManagementService>();

@@ -17,8 +17,10 @@ public static class Permissions
     public const string EmployeeManage = "employees.manage";
     public const string SchedulingManage = "scheduling.manage";
     public const string AvailabilityRead = "availability.read";
+    public const string AppointmentRead = "appointments.read";
     public const string AppointmentManage = "appointments.manage";
     public const string AppointmentReadOwn = "appointments.read-own";
+    public const string AppointmentTransitionOwn = "appointments.transition-own";
     public const string ReportingRead = "reporting.read";
 
     public static IReadOnlyList<string> All { get; } =
@@ -36,8 +38,10 @@ public static class Permissions
         EmployeeManage,
         SchedulingManage,
         AvailabilityRead,
+        AppointmentRead,
         AppointmentManage,
         AppointmentReadOwn,
+        AppointmentTransitionOwn,
         ReportingRead,
     ];
 
@@ -58,6 +62,7 @@ public static class Permissions
             EmployeeManage,
             SchedulingManage,
             AvailabilityRead,
+            AppointmentRead,
             AppointmentManage,
             ReportingRead,
         ],
@@ -71,6 +76,7 @@ public static class Permissions
             ServiceRead,
             EmployeeRead,
             AvailabilityRead,
+            AppointmentRead,
             AppointmentManage,
         ],
         TenantRoles.Employee =>
@@ -81,6 +87,7 @@ public static class Permissions
             ServiceRead,
             AvailabilityRead,
             AppointmentReadOwn,
+            AppointmentTransitionOwn,
         ],
         _ => [],
     };

@@ -2,6 +2,7 @@ using AppointmentCrm.Application.Auditing;
 using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Scheduling;
 using AppointmentCrm.Application.Tenancy;
+using AppointmentCrm.Domain.Appointments;
 using AppointmentCrm.Domain.Scheduling;
 using AppointmentCrm.Domain.Services;
 using AppointmentCrm.Infrastructure.Auditing;
@@ -633,19 +634,34 @@ internal sealed class SchedulingService(
         (DateTimeOffset searchStart, DateTimeOffset searchEnd) = BroadUtcRange(
             query.Date,
             query.Date);
-        List<UnavailableInterval> timeOffs = await dbContext.EmployeeTimeOffs
+        List<UnavailableInterval> unavailableIntervals = await dbContext.EmployeeTimeOffs
             .AsNoTracking()
             .Where(timeOff => timeOff.EmployeeId == query.EmployeeId
                 && timeOff.StartUtc < searchEnd
                 && timeOff.EndUtc > searchStart)
             .Select(timeOff => new UnavailableInterval(timeOff.StartUtc, timeOff.EndUtc))
             .ToListAsync(cancellationToken);
+        List<UnavailableInterval> appointments = await dbContext.Appointments
+            .AsNoTracking()
+            .Where(appointment => appointment.EmployeeId == query.EmployeeId
+                && appointment.Id != query.ExcludeAppointmentId
+                && appointment.StartsAtUtc < searchEnd
+                && appointment.EndsAtUtc > searchStart
+                && (appointment.Status == AppointmentStatus.Scheduled
+                    || appointment.Status == AppointmentStatus.Confirmed
+                    || appointment.Status == AppointmentStatus.Completed
+                    || appointment.Status == AppointmentStatus.NoShow))
+            .Select(appointment => new UnavailableInterval(
+                appointment.StartsAtUtc,
+                appointment.EndsAtUtc))
+            .ToListAsync(cancellationToken);
+        unavailableIntervals.AddRange(appointments);
         IReadOnlyList<AvailabilitySlot> slots = AvailabilityCalculator.Calculate(
             query.Date,
             timeZone,
             service.DurationMinutes,
             periods,
-            timeOffs);
+            unavailableIntervals);
 
         return new AvailabilityDay(
             query.Date,

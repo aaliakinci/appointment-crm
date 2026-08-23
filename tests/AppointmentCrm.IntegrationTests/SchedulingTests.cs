@@ -37,6 +37,9 @@ public sealed class SchedulingTests : IClassFixture<ApiFactory>, IAsyncLifetime
         var dbContext = scope.ServiceProvider.GetRequiredService<AppointmentCrmDbContext>();
         await dbContext.Database.ExecuteSqlRawAsync("""
             TRUNCATE TABLE
+                appointment_status_history,
+                appointments,
+                outbox_messages,
                 audit_entries,
                 date_schedule_override_periods,
                 date_schedule_overrides,

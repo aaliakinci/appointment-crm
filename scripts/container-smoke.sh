@@ -63,6 +63,7 @@ authorization="Authorization: Bearer $access_token"
 origin="Origin: http://localhost:$smoke_web_port"
 employee_id=60000000-0000-0000-0000-000000000001
 service_id=50000000-0000-0000-0000-000000000001
+customer_id=40000000-0000-0000-0000-000000000001
 
 weekly_response=$(curl --fail-with-body --silent --show-error \
   --header "$authorization" \
@@ -133,4 +134,85 @@ process.stdin.on("end", () => {
   }
 });'
 
-echo "Container schedule versioning, timezone, availability, and time-off smoke passed."
+appointment_availability=$(curl --fail-with-body --silent --show-error \
+  --header "$authorization" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/availability?date=2035-01-15&employeeId=$employee_id&serviceId=$service_id")
+appointment_start=$(printf '%s' "$appointment_availability" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const first = JSON.parse(input).slots?.[0];
+  if (first == null) process.exit(1);
+  process.stdout.write(first.startUtc);
+});')
+
+appointment_response=$(curl --fail-with-body --silent --show-error \
+  --request POST \
+  --header "$authorization" \
+  --header "$origin" \
+  --header "Content-Type: application/json" \
+  --data "{\"customerId\":\"$customer_id\",\"employeeId\":\"$employee_id\",\"serviceId\":\"$service_id\",\"startsAtUtc\":\"$appointment_start\",\"notes\":\"Container appointment smoke\"}" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/appointments")
+appointment_identity=$(printf '%s' "$appointment_response" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const appointment = JSON.parse(input).appointment;
+  if (appointment?.status !== "scheduled" || appointment.serviceName !== "Consultation") {
+    process.exit(1);
+  }
+  process.stdout.write(`${appointment.id} ${appointment.revision}`);
+});')
+set -- $appointment_identity
+appointment_id=$1
+appointment_revision=$2
+
+conflict_status=$(curl --silent --show-error \
+  --output /dev/null \
+  --write-out "%{http_code}" \
+  --request POST \
+  --header "$authorization" \
+  --header "$origin" \
+  --header "Content-Type: application/json" \
+  --data "{\"customerId\":\"$customer_id\",\"employeeId\":\"$employee_id\",\"serviceId\":\"$service_id\",\"startsAtUtc\":\"$appointment_start\",\"notes\":null}" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/appointments")
+if [ "$conflict_status" != "409" ]; then
+  echo "Expected an appointment conflict but received HTTP $conflict_status." >&2
+  exit 1
+fi
+
+confirmed_response=$(curl --fail-with-body --silent --show-error \
+  --request POST \
+  --header "$authorization" \
+  --header "$origin" \
+  --header "Content-Type: application/json" \
+  --data "{\"expectedRevision\":$appointment_revision,\"reason\":null}" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/appointments/$appointment_id/confirm")
+confirmed_revision=$(printf '%s' "$confirmed_response" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const appointment = JSON.parse(input).appointment;
+  if (appointment?.status !== "confirmed") process.exit(1);
+  process.stdout.write(String(appointment.revision));
+});')
+
+curl --fail-with-body --silent --show-error \
+  --request POST \
+  --header "$authorization" \
+  --header "$origin" \
+  --header "Content-Type: application/json" \
+  --data "{\"expectedRevision\":$confirmed_revision,\"reason\":\"Container cancellation smoke\"}" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/appointments/$appointment_id/cancel" \
+  >/dev/null
+
+curl --fail-with-body --silent --show-error \
+  --request POST \
+  --header "$authorization" \
+  --header "$origin" \
+  --header "Content-Type: application/json" \
+  --data "{\"customerId\":\"$customer_id\",\"employeeId\":\"$employee_id\",\"serviceId\":\"$service_id\",\"startsAtUtc\":\"$appointment_start\",\"notes\":\"Rebooked after cancellation\"}" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/appointments" \
+  >/dev/null
+
+echo "Container schedule versioning, timezone, appointment lifecycle, conflict, and cancellation smoke passed."

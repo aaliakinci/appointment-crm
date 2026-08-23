@@ -1,4 +1,5 @@
 using System.Reflection;
+using AppointmentCrm.Api.Appointments;
 using AppointmentCrm.Api.Customers;
 using AppointmentCrm.Api.Employees;
 using AppointmentCrm.Api.Identity;
@@ -19,6 +20,8 @@ public sealed class ControllerAuthorizationTests
     [InlineData(typeof(CustomersController))]
     [InlineData(typeof(ServicesController))]
     [InlineData(typeof(EmployeesController))]
+    [InlineData(typeof(AppointmentsController))]
+    [InlineData(typeof(MyAppointmentsController))]
     public void IdentityControllers_RequireAuthenticationAtClassLevel(Type controllerType)
     {
         Assert.True(controllerType.IsSubclassOf(typeof(ControllerBase)));
@@ -121,6 +124,44 @@ public sealed class ControllerAuthorizationTests
     {
         MethodInfo method = GetRequiredMethod(controllerType, methodName);
 
+        Assert.NotNull(method.GetCustomAttribute<ValidateTrustedOriginAttribute>());
+    }
+
+    [Theory]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.ListAsync), Permissions.AppointmentRead)]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.GetAsync), Permissions.AppointmentRead)]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.CreateAsync), Permissions.AppointmentManage)]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.RescheduleAsync), Permissions.AppointmentManage)]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.ConfirmAsync), Permissions.AppointmentManage)]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.CompleteAsync), Permissions.AppointmentManage)]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.CancelAsync), Permissions.AppointmentManage)]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.NoShowAsync), Permissions.AppointmentManage)]
+    [InlineData(typeof(MyAppointmentsController), nameof(MyAppointmentsController.ListAsync), Permissions.AppointmentReadOwn)]
+    [InlineData(typeof(MyAppointmentsController), nameof(MyAppointmentsController.GetAsync), Permissions.AppointmentReadOwn)]
+    [InlineData(typeof(MyAppointmentsController), nameof(MyAppointmentsController.ConfirmAsync), Permissions.AppointmentTransitionOwn)]
+    [InlineData(typeof(MyAppointmentsController), nameof(MyAppointmentsController.CompleteAsync), Permissions.AppointmentTransitionOwn)]
+    [InlineData(typeof(MyAppointmentsController), nameof(MyAppointmentsController.NoShowAsync), Permissions.AppointmentTransitionOwn)]
+    public void AppointmentActions_DeclareExpectedPolicy(
+        Type controllerType,
+        string methodName,
+        string expectedPolicy)
+    {
+        AssertPolicy(controllerType, methodName, expectedPolicy);
+    }
+
+    [Theory]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.CreateAsync))]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.RescheduleAsync))]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.ConfirmAsync))]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.CompleteAsync))]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.CancelAsync))]
+    [InlineData(typeof(AppointmentsController), nameof(AppointmentsController.NoShowAsync))]
+    [InlineData(typeof(MyAppointmentsController), nameof(MyAppointmentsController.ConfirmAsync))]
+    [InlineData(typeof(MyAppointmentsController), nameof(MyAppointmentsController.CompleteAsync))]
+    [InlineData(typeof(MyAppointmentsController), nameof(MyAppointmentsController.NoShowAsync))]
+    public void AppointmentMutations_ValidateTrustedOrigin(Type controllerType, string methodName)
+    {
+        MethodInfo method = GetRequiredMethod(controllerType, methodName);
         Assert.NotNull(method.GetCustomAttribute<ValidateTrustedOriginAttribute>());
     }
 

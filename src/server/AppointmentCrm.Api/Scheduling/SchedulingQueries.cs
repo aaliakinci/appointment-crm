@@ -38,6 +38,9 @@ public sealed class AvailabilityRequestQuery
     [BindRequired]
     [NotEmptyGuid]
     public Guid ServiceId { get; init; }
+
+    [NotEmptyGuid]
+    public Guid? ExcludeAppointmentId { get; init; }
 }
 
 public sealed class WeeklyScheduleVersionListQuery : PageQuery

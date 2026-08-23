@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   AnonymousGuard,
+  AppointmentAccessGuard,
   AuthenticatedGuard,
   CustomerReadGuard,
   SchedulingManageGuard,
@@ -58,6 +59,24 @@ describe("authentication route guards", () => {
         state: { authentication: "authenticated", permissions: ["scheduling.manage"] },
       }),
     ).toMatchObject({ allow: true });
+    expect(
+      guard.canActivate({
+        location,
+        state: { authentication: "authenticated", permissions: ["availability.read"] },
+      }),
+    ).toMatchObject({ allow: false });
+  });
+
+  it("allows both tenant and employee-own appointment read surfaces", () => {
+    const guard = new AppointmentAccessGuard();
+    for (const permission of ["appointments.read", "appointments.read-own"]) {
+      expect(
+        guard.canActivate({
+          location,
+          state: { authentication: "authenticated", permissions: [permission] },
+        }),
+      ).toMatchObject({ allow: true });
+    }
     expect(
       guard.canActivate({
         location,

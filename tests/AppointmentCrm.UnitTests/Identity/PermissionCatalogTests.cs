@@ -49,4 +49,24 @@ public sealed class PermissionCatalogTests
         Assert.DoesNotContain(Permissions.CustomerRead, employee);
         Assert.DoesNotContain(Permissions.EmployeeRead, employee);
     }
+
+    [Fact]
+    public void AppointmentPermissions_SeparateTenantManagementFromEmployeeSelfService()
+    {
+        IReadOnlyList<string> manager = Permissions.ForRole(TenantRoles.Manager);
+        Assert.Contains(Permissions.AppointmentRead, manager);
+        Assert.Contains(Permissions.AppointmentManage, manager);
+        Assert.DoesNotContain(Permissions.AppointmentReadOwn, manager);
+        Assert.DoesNotContain(Permissions.AppointmentTransitionOwn, manager);
+
+        IReadOnlyList<string> receptionist = Permissions.ForRole(TenantRoles.Receptionist);
+        Assert.Contains(Permissions.AppointmentRead, receptionist);
+        Assert.Contains(Permissions.AppointmentManage, receptionist);
+
+        IReadOnlyList<string> employee = Permissions.ForRole(TenantRoles.Employee);
+        Assert.Contains(Permissions.AppointmentReadOwn, employee);
+        Assert.Contains(Permissions.AppointmentTransitionOwn, employee);
+        Assert.DoesNotContain(Permissions.AppointmentRead, employee);
+        Assert.DoesNotContain(Permissions.AppointmentManage, employee);
+    }
 }

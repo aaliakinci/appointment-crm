@@ -59,6 +59,7 @@ export function useAvailability({ employees, services, t, today }: UseAvailabili
         values.date,
         values.employeeId,
         values.serviceId,
+        undefined,
         abortController.signal,
       );
       if (!abortController.signal.aborted) setAvailability(result);

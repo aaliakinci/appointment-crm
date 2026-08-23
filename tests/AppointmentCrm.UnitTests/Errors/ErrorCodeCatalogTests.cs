@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
 using AppointmentCrm.Api.Errors;
+using AppointmentCrm.Application.Appointments;
 using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Customers;
 using AppointmentCrm.Application.Employees;
@@ -15,6 +16,7 @@ public sealed class ErrorCodeCatalogTests
     private static readonly Type[] Catalogs =
     [
         typeof(CommonErrorCodes),
+        typeof(AppointmentErrorCodes),
         typeof(CustomerErrorCodes),
         typeof(EmployeeErrorCodes),
         typeof(IdentityErrorCodes),

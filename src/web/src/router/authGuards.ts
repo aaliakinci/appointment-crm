@@ -51,3 +51,15 @@ export class SchedulingManageGuard extends PermissionGuard {
   readonly id = "scheduling-manage";
   readonly permission = "scheduling.manage";
 }
+
+export class AppointmentAccessGuard extends RouteGuard<AppRouterState> {
+  readonly id = "appointments-access";
+
+  canActivate(context: GuardContext<AppRouterState>): GuardResult {
+    const permissions = context.state?.permissions ?? [];
+    return permissions.includes("appointments.read") ||
+      permissions.includes("appointments.read-own")
+      ? { allow: true }
+      : { allow: false, redirectTo: "/account", replace: true, reason: "permission-required" };
+  }
+}

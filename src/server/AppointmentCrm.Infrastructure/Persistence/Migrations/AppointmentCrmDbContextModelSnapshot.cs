@@ -22,6 +22,169 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("AppointmentCrm.Domain.Appointments.Appointment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at_utc");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("customer_id");
+
+                    b.Property<Guid>("EmployeeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("employee_id");
+
+                    b.Property<DateTimeOffset>("EndsAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at_utc");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint")
+                        .HasColumnName("revision");
+
+                    b.Property<string>("ServiceCurrency")
+                        .IsRequired()
+                        .HasMaxLength(3)
+                        .HasColumnType("character varying(3)")
+                        .HasColumnName("service_currency");
+
+                    b.Property<int>("ServiceDurationMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("service_duration_minutes");
+
+                    b.Property<Guid>("ServiceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("service_id");
+
+                    b.Property<string>("ServiceName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("service_name");
+
+                    b.Property<decimal>("ServicePrice")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)")
+                        .HasColumnName("service_price");
+
+                    b.Property<DateTimeOffset>("StartsAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("starts_at_utc");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at_utc");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ServiceId");
+
+                    b.HasIndex("TenantId", "CustomerId", "StartsAtUtc")
+                        .HasDatabaseName("ix_appointments_tenant_customer_start");
+
+                    b.HasIndex("TenantId", "EmployeeId", "StartsAtUtc")
+                        .HasDatabaseName("ix_appointments_tenant_employee_start");
+
+                    b.HasIndex("TenantId", "Status", "StartsAtUtc")
+                        .HasDatabaseName("ix_appointments_tenant_status_start");
+
+                    b.ToTable("appointments", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_appointments_range", "starts_at_utc < ends_at_utc");
+
+                            t.HasCheckConstraint("ck_appointments_revision", "revision > 0");
+
+                            t.HasCheckConstraint("ck_appointments_snapshot_currency", "service_currency ~ '^[A-Z]{3}$'");
+
+                            t.HasCheckConstraint("ck_appointments_snapshot_duration", "service_duration_minutes BETWEEN 5 AND 480 AND service_duration_minutes % 5 = 0");
+
+                            t.HasCheckConstraint("ck_appointments_snapshot_price", "service_price >= 0 AND service_price <= 1000000");
+
+                            t.HasCheckConstraint("ck_appointments_status", "status IN ('Scheduled', 'Confirmed', 'Completed', 'Cancelled', 'NoShow')");
+                        });
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Appointments.AppointmentStatusHistory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActorMembershipId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_membership_id");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<Guid>("AppointmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("appointment_id");
+
+                    b.Property<string>("FromStatus")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("from_status");
+
+                    b.Property<DateTimeOffset>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at_utc");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("ToStatus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("to_status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ActorMembershipId", "ActorUserId");
+
+                    b.HasIndex("TenantId", "AppointmentId", "OccurredAtUtc")
+                        .HasDatabaseName("ix_appointment_status_history_timeline");
+
+                    b.ToTable("appointment_status_history", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_appointment_status_history_from_status", "from_status IS NULL OR from_status IN ('Scheduled', 'Confirmed', 'Completed', 'Cancelled', 'NoShow')");
+
+                            t.HasCheckConstraint("ck_appointment_status_history_to_status", "to_status IN ('Scheduled', 'Confirmed', 'Completed', 'Cancelled', 'NoShow')");
+                        });
+                });
+
             modelBuilder.Entity("AppointmentCrm.Domain.Auditing.AuditEntry", b =>
                 {
                     b.Property<Guid>("Id")
@@ -141,8 +304,6 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasAlternateKey("TenantId", "Id");
-
                     b.HasIndex("TenantId", "NormalizedEmail")
                         .IsUnique()
                         .HasDatabaseName("ux_customers_tenant_email")
@@ -244,6 +405,11 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         },
                         new
                         {
+                            Code = "appointments.read",
+                            Name = "appointments.read"
+                        },
+                        new
+                        {
                             Code = "appointments.manage",
                             Name = "appointments.manage"
                         },
@@ -251,6 +417,11 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         {
                             Code = "appointments.read-own",
                             Name = "appointments.read-own"
+                        },
+                        new
+                        {
+                            Code = "appointments.transition-own",
+                            Name = "appointments.transition-own"
                         },
                         new
                         {
@@ -386,12 +557,22 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleCode = "Owner",
+                            PermissionCode = "appointments.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Owner",
                             PermissionCode = "appointments.manage"
                         },
                         new
                         {
                             RoleCode = "Owner",
                             PermissionCode = "appointments.read-own"
+                        },
+                        new
+                        {
+                            RoleCode = "Owner",
+                            PermissionCode = "appointments.transition-own"
                         },
                         new
                         {
@@ -461,6 +642,11 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleCode = "Manager",
+                            PermissionCode = "appointments.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Manager",
                             PermissionCode = "appointments.manage"
                         },
                         new
@@ -511,6 +697,11 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         new
                         {
                             RoleCode = "Receptionist",
+                            PermissionCode = "appointments.read"
+                        },
+                        new
+                        {
+                            RoleCode = "Receptionist",
                             PermissionCode = "appointments.manage"
                         },
                         new
@@ -542,6 +733,11 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         {
                             RoleCode = "Employee",
                             PermissionCode = "appointments.read-own"
+                        },
+                        new
+                        {
+                            RoleCode = "Employee",
+                            PermissionCode = "appointments.transition-own"
                         });
                 });
 
@@ -775,6 +971,73 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "MembershipId", "UserId");
 
                     b.ToTable("user_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Outbox.OutboxMessage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("AggregateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("aggregate_id");
+
+                    b.Property<string>("AggregateType")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("aggregate_type");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("last_error");
+
+                    b.Property<DateTimeOffset?>("NextAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at_utc");
+
+                    b.Property<DateTimeOffset>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at_utc");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload_json");
+
+                    b.Property<DateTimeOffset?>("ProcessedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at_utc");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProcessedAtUtc", "NextAttemptAtUtc", "OccurredAtUtc")
+                        .HasDatabaseName("ix_outbox_messages_pending");
+
+                    b.HasIndex("TenantId", "AggregateType", "AggregateId")
+                        .HasDatabaseName("ix_outbox_messages_tenant_aggregate");
+
+                    b.ToTable("outbox_messages", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_outbox_messages_attempts", "attempts >= 0");
+                        });
                 });
 
             modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.DateScheduleOverride", b =>
@@ -1223,6 +1486,57 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AppointmentCrm.Domain.Appointments.Appointment", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Customers.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CustomerId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AppointmentCrm.Domain.Services.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "EmployeeId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AppointmentCrm.Domain.Services.ServiceOffering", "Service")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ServiceId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Service");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Appointments.AppointmentStatusHistory", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Appointments.Appointment", "Appointment")
+                        .WithMany("StatusHistory")
+                        .HasForeignKey("TenantId", "AppointmentId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AppointmentCrm.Domain.Identity.TenantMembership", "ActorMembership")
+                        .WithMany()
+                        .HasForeignKey("TenantId", "ActorMembershipId", "ActorUserId")
+                        .HasPrincipalKey("TenantId", "Id", "UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ActorMembership");
+
+                    b.Navigation("Appointment");
+                });
+
             modelBuilder.Entity("AppointmentCrm.Domain.Auditing.AuditEntry", b =>
                 {
                     b.HasOne("AppointmentCrm.Domain.Identity.TenantMembership", null)
@@ -1292,6 +1606,15 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Membership");
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Outbox.OutboxMessage", b =>
+                {
+                    b.HasOne("AppointmentCrm.Domain.Identity.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("AppointmentCrm.Domain.Scheduling.DateScheduleOverride", b =>
@@ -1415,6 +1738,11 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("AppointmentCrm.Domain.Appointments.Appointment", b =>
+                {
+                    b.Navigation("StatusHistory");
                 });
 
             modelBuilder.Entity("AppointmentCrm.Domain.Identity.Tenant", b =>

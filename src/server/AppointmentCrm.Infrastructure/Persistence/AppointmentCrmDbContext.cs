@@ -1,9 +1,11 @@
 using AppointmentCrm.Application.Identity;
 using AppointmentCrm.Application.Tenancy;
+using AppointmentCrm.Domain.Appointments;
 using AppointmentCrm.Domain.Auditing;
 using AppointmentCrm.Domain.Common;
 using AppointmentCrm.Domain.Customers;
 using AppointmentCrm.Domain.Identity;
+using AppointmentCrm.Domain.Outbox;
 using AppointmentCrm.Domain.Scheduling;
 using AppointmentCrm.Domain.Services;
 using Microsoft.EntityFrameworkCore;
@@ -59,7 +61,14 @@ public sealed class AppointmentCrmDbContext : DbContext
 
     public DbSet<EmployeeTimeOff> EmployeeTimeOffs => Set<EmployeeTimeOff>();
 
+    public DbSet<Appointment> Appointments => Set<Appointment>();
+
+    public DbSet<AppointmentStatusHistory> AppointmentStatusHistory =>
+        Set<AppointmentStatusHistory>();
+
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
@@ -88,7 +97,9 @@ public sealed class AppointmentCrmDbContext : DbContext
         ConfigureServices(modelBuilder);
         ConfigureEmployees(modelBuilder);
         ConfigureScheduling(modelBuilder);
+        ConfigureAppointments(modelBuilder);
         ConfigureAuditEntries(modelBuilder);
+        ConfigureOutbox(modelBuilder);
     }
 
     private void ConfigureUsers(ModelBuilder modelBuilder)
@@ -537,6 +548,226 @@ public sealed class AppointmentCrmDbContext : DbContext
             entity.HasQueryFilter(
                 entry => _tenantContext.IsAvailable
                     && entry.TenantId == _tenantContext.TenantId);
+        });
+    }
+
+    private void ConfigureAppointments(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Appointment>(entity =>
+        {
+            entity.ToTable(
+                "appointments",
+                table =>
+                {
+                    table.HasCheckConstraint(
+                        "ck_appointments_status",
+                        "status IN ('Scheduled', 'Confirmed', 'Completed', 'Cancelled', 'NoShow')");
+                    table.HasCheckConstraint(
+                        "ck_appointments_range",
+                        "starts_at_utc < ends_at_utc");
+                    table.HasCheckConstraint(
+                        "ck_appointments_snapshot_duration",
+                        "service_duration_minutes BETWEEN 5 AND 480 AND service_duration_minutes % 5 = 0");
+                    table.HasCheckConstraint(
+                        "ck_appointments_snapshot_price",
+                        "service_price >= 0 AND service_price <= 1000000");
+                    table.HasCheckConstraint(
+                        "ck_appointments_snapshot_currency",
+                        "service_currency ~ '^[A-Z]{3}$'");
+                    table.HasCheckConstraint(
+                        "ck_appointments_revision",
+                        "revision > 0");
+                });
+            entity.HasKey(appointment => appointment.Id);
+            entity.HasAlternateKey(appointment => new { appointment.TenantId, appointment.Id });
+            entity.Property(appointment => appointment.Id).HasColumnName("id");
+            entity.Property(appointment => appointment.TenantId).HasColumnName("tenant_id");
+            entity.Property(appointment => appointment.CustomerId).HasColumnName("customer_id");
+            entity.Property(appointment => appointment.EmployeeId).HasColumnName("employee_id");
+            entity.Property(appointment => appointment.ServiceId).HasColumnName("service_id");
+            entity.Property(appointment => appointment.Status)
+                .HasColumnName("status")
+                .HasConversion<string>()
+                .HasMaxLength(16);
+            entity.Property(appointment => appointment.StartsAtUtc).HasColumnName("starts_at_utc");
+            entity.Property(appointment => appointment.EndsAtUtc).HasColumnName("ends_at_utc");
+            entity.Property(appointment => appointment.ServiceName)
+                .HasColumnName("service_name")
+                .HasMaxLength(160);
+            entity.Property(appointment => appointment.ServiceDurationMinutes)
+                .HasColumnName("service_duration_minutes");
+            entity.Property(appointment => appointment.ServicePrice)
+                .HasColumnName("service_price")
+                .HasPrecision(12, 2);
+            entity.Property(appointment => appointment.ServiceCurrency)
+                .HasColumnName("service_currency")
+                .HasMaxLength(3);
+            entity.Property(appointment => appointment.Notes)
+                .HasColumnName("notes")
+                .HasMaxLength(1_000);
+            entity.Property(appointment => appointment.Revision)
+                .HasColumnName("revision")
+                .IsConcurrencyToken();
+            entity.Property(appointment => appointment.CreatedAtUtc).HasColumnName("created_at_utc");
+            entity.Property(appointment => appointment.UpdatedAtUtc).HasColumnName("updated_at_utc");
+            entity.HasIndex(appointment => new
+            {
+                appointment.TenantId,
+                appointment.EmployeeId,
+                appointment.StartsAtUtc,
+            }).HasDatabaseName("ix_appointments_tenant_employee_start");
+            entity.HasIndex(appointment => new
+            {
+                appointment.TenantId,
+                appointment.CustomerId,
+                appointment.StartsAtUtc,
+            }).HasDatabaseName("ix_appointments_tenant_customer_start");
+            entity.HasIndex(appointment => new
+            {
+                appointment.TenantId,
+                appointment.Status,
+                appointment.StartsAtUtc,
+            }).HasDatabaseName("ix_appointments_tenant_status_start");
+            entity.HasOne(appointment => appointment.Customer)
+                .WithMany()
+                .HasForeignKey(appointment => new
+                {
+                    appointment.TenantId,
+                    appointment.CustomerId,
+                })
+                .HasPrincipalKey(customer => new { customer.TenantId, customer.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(appointment => appointment.Employee)
+                .WithMany()
+                .HasForeignKey(appointment => new
+                {
+                    appointment.TenantId,
+                    appointment.EmployeeId,
+                })
+                .HasPrincipalKey(employee => new { employee.TenantId, employee.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(appointment => appointment.Service)
+                .WithMany()
+                .HasForeignKey(appointment => new
+                {
+                    appointment.TenantId,
+                    appointment.ServiceId,
+                })
+                .HasPrincipalKey(service => new { service.TenantId, service.Id })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.Navigation(appointment => appointment.StatusHistory)
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+            entity.HasQueryFilter(appointment =>
+                _tenantContext.IsAvailable && appointment.TenantId == _tenantContext.TenantId);
+        });
+
+        modelBuilder.Entity<AppointmentStatusHistory>(entity =>
+        {
+            entity.ToTable(
+                "appointment_status_history",
+                table =>
+                {
+                    table.HasCheckConstraint(
+                        "ck_appointment_status_history_from_status",
+                        "from_status IS NULL OR from_status IN ('Scheduled', 'Confirmed', 'Completed', 'Cancelled', 'NoShow')");
+                    table.HasCheckConstraint(
+                        "ck_appointment_status_history_to_status",
+                        "to_status IN ('Scheduled', 'Confirmed', 'Completed', 'Cancelled', 'NoShow')");
+                });
+            entity.HasKey(history => history.Id);
+            entity.Property(history => history.Id).HasColumnName("id");
+            entity.Property(history => history.TenantId).HasColumnName("tenant_id");
+            entity.Property(history => history.AppointmentId).HasColumnName("appointment_id");
+            entity.Property(history => history.FromStatus)
+                .HasColumnName("from_status")
+                .HasConversion<string>()
+                .HasMaxLength(16);
+            entity.Property(history => history.ToStatus)
+                .HasColumnName("to_status")
+                .HasConversion<string>()
+                .HasMaxLength(16);
+            entity.Property(history => history.ActorUserId).HasColumnName("actor_user_id");
+            entity.Property(history => history.ActorMembershipId)
+                .HasColumnName("actor_membership_id");
+            entity.Property(history => history.Reason).HasColumnName("reason").HasMaxLength(500);
+            entity.Property(history => history.OccurredAtUtc).HasColumnName("occurred_at_utc");
+            entity.HasIndex(history => new
+            {
+                history.TenantId,
+                history.AppointmentId,
+                history.OccurredAtUtc,
+            }).HasDatabaseName("ix_appointment_status_history_timeline");
+            entity.HasOne(history => history.Appointment)
+                .WithMany(appointment => appointment.StatusHistory)
+                .HasForeignKey(history => new { history.TenantId, history.AppointmentId })
+                .HasPrincipalKey(appointment => new { appointment.TenantId, appointment.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(history => history.ActorMembership)
+                .WithMany()
+                .HasForeignKey(history => new
+                {
+                    history.TenantId,
+                    history.ActorMembershipId,
+                    history.ActorUserId,
+                })
+                .HasPrincipalKey(membership => new
+                {
+                    membership.TenantId,
+                    membership.Id,
+                    membership.UserId,
+                })
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(history =>
+                _tenantContext.IsAvailable && history.TenantId == _tenantContext.TenantId);
+        });
+    }
+
+    private void ConfigureOutbox(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<OutboxMessage>(entity =>
+        {
+            entity.ToTable(
+                "outbox_messages",
+                table => table.HasCheckConstraint(
+                    "ck_outbox_messages_attempts",
+                    "attempts >= 0"));
+            entity.HasKey(message => message.Id);
+            entity.Property(message => message.Id).HasColumnName("id");
+            entity.Property(message => message.TenantId).HasColumnName("tenant_id");
+            entity.Property(message => message.Type).HasColumnName("type").HasMaxLength(120);
+            entity.Property(message => message.AggregateType)
+                .HasColumnName("aggregate_type")
+                .HasMaxLength(80);
+            entity.Property(message => message.AggregateId).HasColumnName("aggregate_id");
+            entity.Property(message => message.PayloadJson)
+                .HasColumnName("payload_json")
+                .HasColumnType("jsonb");
+            entity.Property(message => message.OccurredAtUtc).HasColumnName("occurred_at_utc");
+            entity.Property(message => message.ProcessedAtUtc).HasColumnName("processed_at_utc");
+            entity.Property(message => message.Attempts).HasColumnName("attempts");
+            entity.Property(message => message.NextAttemptAtUtc)
+                .HasColumnName("next_attempt_at_utc");
+            entity.Property(message => message.LastError)
+                .HasColumnName("last_error")
+                .HasMaxLength(2_000);
+            entity.HasIndex(message => new
+            {
+                message.ProcessedAtUtc,
+                message.NextAttemptAtUtc,
+                message.OccurredAtUtc,
+            }).HasDatabaseName("ix_outbox_messages_pending");
+            entity.HasIndex(message => new
+            {
+                message.TenantId,
+                message.AggregateType,
+                message.AggregateId,
+            }).HasDatabaseName("ix_outbox_messages_tenant_aggregate");
+            entity.HasOne<Tenant>()
+                .WithMany()
+                .HasForeignKey(message => message.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(message =>
+                _tenantContext.IsAvailable && message.TenantId == _tenantContext.TenantId);
         });
     }
 

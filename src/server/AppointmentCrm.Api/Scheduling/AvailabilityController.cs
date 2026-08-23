@@ -25,7 +25,11 @@ public sealed class AvailabilityController(ISchedulingService schedulingService)
         CancellationToken cancellationToken)
     {
         AvailabilityDay availability = await schedulingService.GetAvailabilityAsync(
-            new AvailabilityQuery(query.Date!.Value, query.EmployeeId, query.ServiceId),
+            new AvailabilityQuery(
+                query.Date!.Value,
+                query.EmployeeId,
+                query.ServiceId,
+                query.ExcludeAppointmentId),
             cancellationToken);
         return Ok(availability.ToResponse());
     }

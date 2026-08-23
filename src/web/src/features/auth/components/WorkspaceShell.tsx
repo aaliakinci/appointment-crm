@@ -10,7 +10,8 @@ import { useAppTranslation } from "@/i18n";
 
 import { useAuth } from "../model/authContext";
 
-export type WorkspacePath = "/account" | "/customers" | "/services" | "/employees" | "/scheduling";
+export type WorkspacePath =
+  "/account" | "/customers" | "/services" | "/employees" | "/appointments" | "/scheduling";
 
 interface WorkspaceShellProps extends PropsWithChildren {
   readonly id: string;
@@ -36,6 +37,9 @@ export function WorkspaceShell({ activePath, children, id, onNavigate }: Workspa
       : null,
     permissions.has("employees.read")
       ? { path: "/employees" as const, label: t("app:navigation.employees") }
+      : null,
+    permissions.has("appointments.read") || permissions.has("appointments.read-own")
+      ? { path: "/appointments" as const, label: t("app:navigation.appointments") }
       : null,
     permissions.has("scheduling.manage")
       ? { path: "/scheduling" as const, label: t("app:navigation.scheduling") }

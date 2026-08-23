@@ -180,11 +180,12 @@ export function getAvailability(
   date: string,
   employeeId: string,
   serviceId: string,
+  excludeAppointmentId?: string,
   signal?: AbortSignal,
 ): Promise<Availability> {
   return appHttpClient.getData<Availability>("/api/v1/availability", {
     signal,
-    params: { date, employeeId, serviceId },
+    params: toQueryParams({ date, employeeId, serviceId, excludeAppointmentId }),
     decode: decodeAvailability,
     metadata: { operationName: "availability.get" },
   });

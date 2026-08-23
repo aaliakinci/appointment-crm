@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using AppointmentCrm.Api.Appointments;
 using AppointmentCrm.Api.Controllers;
 using AppointmentCrm.Api.Customers;
 using AppointmentCrm.Api.Employees;
@@ -87,6 +88,34 @@ public sealed class PageQueryTests
 
         ValidationResult error = Assert.Single(errors);
         Assert.Contains(nameof(query.SortBy), error.MemberNames);
+    }
+
+    [Fact]
+    public void AppointmentQuery_MapsFiltersAndRejectsInvalidStatusOrDateRange()
+    {
+        var valid = new AppointmentListQuery
+        {
+            FromDate = new DateOnly(2026, 8, 24),
+            ToDate = new DateOnly(2026, 8, 30),
+            Status = " CONFIRMED ",
+            SortBy = "employee",
+        };
+
+        Assert.Empty(Validate(valid));
+        Assert.Equal("employee", valid.ToPageRequest().SortBy);
+        Assert.Equal(AppointmentCrm.Domain.Appointments.AppointmentStatus.Confirmed, valid.ToFilter().Status);
+
+        var invalid = new AppointmentListQuery
+        {
+            FromDate = new DateOnly(2026, 8, 24),
+            ToDate = new DateOnly(2026, 10, 1),
+            Status = "waiting",
+        };
+        string[] members = Validate(invalid)
+            .SelectMany(error => error.MemberNames)
+            .ToArray();
+        Assert.Contains(nameof(invalid.ToDate), members);
+        Assert.Contains(nameof(invalid.Status), members);
     }
 
     private static IReadOnlyList<ValidationResult> Validate(object value)

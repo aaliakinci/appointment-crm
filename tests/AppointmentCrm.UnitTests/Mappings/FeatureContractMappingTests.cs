@@ -1,13 +1,16 @@
+using AppointmentCrm.Api.Appointments;
 using AppointmentCrm.Api.Customers;
 using AppointmentCrm.Api.Employees;
 using AppointmentCrm.Api.Identity;
 using AppointmentCrm.Api.Services;
+using AppointmentCrm.Application.Appointments;
 using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Customers;
 using AppointmentCrm.Application.Employees;
 using AppointmentCrm.Application.Identity;
 using AppointmentCrm.Application.Services;
 using AppointmentCrm.Contracts;
+using AppointmentCrm.Domain.Appointments;
 
 namespace AppointmentCrm.UnitTests.Mappings;
 
@@ -104,5 +107,47 @@ public sealed class FeatureContractMappingTests
         Assert.Equal(tenant.Id, Assert.Single(authentication.Tenants).Id);
         Assert.Equal(report.Total, membershipReport.Total);
         Assert.Equal(report.ByRole, membershipReport.ByRole);
+    }
+
+    [Fact]
+    public void AppointmentMappings_PreserveSnapshotStatusAndHistory()
+    {
+        var summary = new AppointmentSummary(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Ada",
+            Guid.NewGuid(),
+            "Grace",
+            Guid.NewGuid(),
+            "Consultation snapshot",
+            45,
+            750.50m,
+            "TRY",
+            AppointmentStatus.Confirmed,
+            DateTimeOffset.Parse("2026-08-24T07:00:00Z"),
+            DateTimeOffset.Parse("2026-08-24T07:45:00Z"),
+            DateTimeOffset.Parse("2026-08-24T10:00:00+03:00"),
+            DateTimeOffset.Parse("2026-08-24T10:45:00+03:00"),
+            "Europe/Istanbul",
+            "First visit",
+            2,
+            DateTimeOffset.Parse("2026-08-23T10:00:00Z"),
+            DateTimeOffset.Parse("2026-08-23T11:00:00Z"));
+        var history = new AppointmentStatusHistorySummary(
+            Guid.NewGuid(),
+            AppointmentStatus.Scheduled,
+            AppointmentStatus.Confirmed,
+            "Manager",
+            null,
+            DateTimeOffset.Parse("2026-08-23T11:00:00Z"));
+
+        AppointmentResponse response = new AppointmentDetail(summary, [history]).ToResponse();
+
+        Assert.Equal("confirmed", response.Appointment.Status);
+        Assert.Equal("Consultation snapshot", response.Appointment.ServiceName);
+        Assert.Equal(45, response.Appointment.ServiceDurationMinutes);
+        AppointmentStatusHistoryResponse mappedHistory = Assert.Single(response.StatusHistory);
+        Assert.Equal("scheduled", mappedHistory.FromStatus);
+        Assert.Equal("confirmed", mappedHistory.ToStatus);
     }
 }

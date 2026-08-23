@@ -6,6 +6,7 @@ import { SystemStatusPage } from "@/pages/SystemStatusPage";
 
 import {
   AnonymousGuard,
+  AppointmentAccessGuard,
   AuthenticatedGuard,
   CustomerReadGuard,
   EmployeeReadGuard,
@@ -27,6 +28,7 @@ appGuardRegistry.register(CustomerReadGuard);
 appGuardRegistry.register(ServiceReadGuard);
 appGuardRegistry.register(EmployeeReadGuard);
 appGuardRegistry.register(SchedulingManageGuard);
+appGuardRegistry.register(AppointmentAccessGuard);
 
 const systemStatusPage: LilyPageComponent = (props) => createElement(SystemStatusPage, props);
 const LazyLoginPage = lazy(async () => ({
@@ -47,6 +49,9 @@ const LazyEmployeesPage = lazy(async () => ({
 const LazySchedulingPage = lazy(async () => ({
   default: (await import("@/pages/SchedulingPage")).SchedulingPage,
 }));
+const LazyAppointmentsPage = lazy(async () => ({
+  default: (await import("@/pages/AppointmentsPage")).AppointmentsPage,
+}));
 const loginPage: LilyPageComponent = (props) =>
   createElement(Suspense, { fallback: null }, createElement(LazyLoginPage, props));
 const accountPage: LilyPageComponent = (props) =>
@@ -59,6 +64,8 @@ const employeesPage: LilyPageComponent = (props) =>
   createElement(Suspense, { fallback: null }, createElement(LazyEmployeesPage, props));
 const schedulingPage: LilyPageComponent = (props) =>
   createElement(Suspense, { fallback: null }, createElement(LazySchedulingPage, props));
+const appointmentsPage: LilyPageComponent = (props) =>
+  createElement(Suspense, { fallback: null }, createElement(LazyAppointmentsPage, props));
 
 export const APP_ROUTES = routerKit.createRoutes([
   { id: "system-status", path: "/", page: systemStatusPage },
@@ -81,6 +88,12 @@ export const APP_ROUTES = routerKit.createRoutes([
     path: "/employees",
     page: employeesPage,
     guards: [AuthenticatedGuard, EmployeeReadGuard],
+  },
+  {
+    id: "appointments",
+    path: "/appointments",
+    page: appointmentsPage,
+    guards: [AuthenticatedGuard, AppointmentAccessGuard],
   },
   {
     id: "scheduling",
