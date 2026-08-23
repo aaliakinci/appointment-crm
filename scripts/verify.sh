@@ -17,6 +17,7 @@ dotnet test tests/AppointmentCrm.UnitTests/AppointmentCrm.UnitTests.csproj --con
 
 verification_project=appointment-crm-verify
 verification_postgres_port=${APPOINTMENTCRM_VERIFY_POSTGRES_PORT:-55433}
+verification_redis_port=${APPOINTMENTCRM_VERIFY_REDIS_PORT:-56380}
 verification_postgres_password=verify-local-only
 
 cleanup_verification_database() {
@@ -26,6 +27,7 @@ cleanup_verification_database() {
       APPOINTMENTCRM_POSTGRES_USER=appointment_crm \
       APPOINTMENTCRM_POSTGRES_PASSWORD="$verification_postgres_password" \
       APPOINTMENTCRM_POSTGRES_PORT="$verification_postgres_port" \
+      APPOINTMENTCRM_REDIS_PORT="$verification_redis_port" \
       docker compose --project-name "$verification_project" down --volumes >/dev/null
   )
 }
@@ -35,8 +37,10 @@ APPOINTMENTCRM_POSTGRES_DB=appointment_crm \
   APPOINTMENTCRM_POSTGRES_USER=appointment_crm \
   APPOINTMENTCRM_POSTGRES_PASSWORD="$verification_postgres_password" \
   APPOINTMENTCRM_POSTGRES_PORT="$verification_postgres_port" \
-  docker compose --project-name "$verification_project" up --detach --wait postgres
+  APPOINTMENTCRM_REDIS_PORT="$verification_redis_port" \
+  docker compose --project-name "$verification_project" up --detach --wait postgres redis
 export APPOINTMENTCRM_TEST_POSTGRES="Host=127.0.0.1;Port=$verification_postgres_port;Database=appointment_crm;Username=appointment_crm;Password=$verification_postgres_password"
+export APPOINTMENTCRM_TEST_REDIS="127.0.0.1:$verification_redis_port,abortConnect=false,connectTimeout=1000,syncTimeout=1000"
 dotnet test tests/AppointmentCrm.IntegrationTests/AppointmentCrm.IntegrationTests.csproj --configuration Release --no-build --no-restore --verbosity minimal -m:1
 
 cd src/web

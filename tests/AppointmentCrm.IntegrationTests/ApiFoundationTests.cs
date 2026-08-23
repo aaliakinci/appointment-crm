@@ -5,9 +5,12 @@ using AppointmentCrm.Contracts;
 using AppointmentCrm.Infrastructure;
 using AppointmentCrm.Infrastructure.Persistence;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AppointmentCrm.IntegrationTests;
@@ -195,6 +198,90 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
     }
 
     [Fact]
+    public async Task ApiResponses_IncludeSecurityHeaders()
+    {
+        using var client = _factory.CreateClient();
+        using HttpResponseMessage response = await client.GetAsync("/api/v1/system/status");
+
+        response.EnsureSuccessStatusCode();
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("DENY", response.Headers.GetValues("X-Frame-Options").Single());
+        Assert.Equal("no-referrer", response.Headers.GetValues("Referrer-Policy").Single());
+        Assert.Contains(
+            "frame-ancestors 'none'",
+            response.Headers.GetValues("Content-Security-Policy").Single(),
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "camera=()",
+            response.Headers.GetValues("Permissions-Policy").Single(),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CorsPreflight_AllowsOnlyConfiguredOrigin()
+    {
+        using var client = _factory.CreateClient();
+        using var trusted = new HttpRequestMessage(HttpMethod.Options, "/api/v1/system/status");
+        trusted.Headers.Add("Origin", "http://localhost:5173");
+        trusted.Headers.Add("Access-Control-Request-Method", "GET");
+        using HttpResponseMessage trustedResponse = await client.SendAsync(trusted);
+
+        Assert.Equal(HttpStatusCode.NoContent, trustedResponse.StatusCode);
+        Assert.Equal(
+            "http://localhost:5173",
+            trustedResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+
+        using var untrusted = new HttpRequestMessage(HttpMethod.Options, "/api/v1/system/status");
+        untrusted.Headers.Add("Origin", "https://attacker.example");
+        untrusted.Headers.Add("Access-Control-Request-Method", "GET");
+        using HttpResponseMessage untrustedResponse = await client.SendAsync(untrusted);
+        Assert.False(untrustedResponse.Headers.Contains("Access-Control-Allow-Origin"));
+    }
+
+    [Fact]
+    public async Task OversizedRequest_ReturnsProblemDetailsWithoutReadingTheBody()
+    {
+        using var client = _factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/auth/login")
+        {
+            Content = new StringContent(new string('x', 1_048_577)),
+        };
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        using JsonDocument problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal(
+            "common.payload_too_large",
+            problem.RootElement.GetProperty("code").GetString());
+        Assert.True(problem.RootElement.TryGetProperty("traceId", out _));
+    }
+
+    [Fact]
+    public async Task UnsafeRequests_AreCoveredByTheGlobalWriteRateLimit()
+    {
+        using WebApplicationFactory<Program> factory = _factory.WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Security:WritePermitLimit"] = "2",
+                    ["Security:WriteWindowSeconds"] = "3600",
+                })));
+        using HttpClient client = factory.CreateClient();
+        HttpStatusCode[] statuses = new HttpStatusCode[3];
+        for (int index = 0; index < statuses.Length; index++)
+        {
+            using HttpResponseMessage response = await client.PostAsJsonAsync(
+                "/api/v1/customers",
+                new CustomerCreateRequestProbe());
+            statuses[index] = response.StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, statuses[0]);
+        Assert.Equal(HttpStatusCode.Unauthorized, statuses[1]);
+        Assert.Equal(HttpStatusCode.TooManyRequests, statuses[2]);
+    }
+
+    [Fact]
     public async Task InitialMigration_IsAppliedToPostgreSql()
     {
         var options = new DbContextOptionsBuilder<AppointmentCrmDbContext>()
@@ -229,4 +316,6 @@ public sealed class ApiFoundationTests : IClassFixture<ApiFactory>, IAsyncLifeti
             $"OpenAPI content type '{contentType}' was not found for response '{statusCode}'.");
         Assert.Equal(JsonValueKind.Object, content.GetProperty("schema").ValueKind);
     }
+
+    private sealed record CustomerCreateRequestProbe;
 }

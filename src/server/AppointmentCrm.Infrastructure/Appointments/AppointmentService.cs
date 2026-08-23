@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using AppointmentCrm.Application.Appointments;
 using AppointmentCrm.Application.Auditing;
@@ -435,7 +436,10 @@ internal sealed class AppointmentService(
             "appointment",
             appointment.Id,
             payload,
-            occurredAtUtc));
+            occurredAtUtc,
+            Activity.Current?.Id,
+            Activity.Current?.TraceStateString,
+            Activity.Current?.GetBaggageItem("app.correlation_id")));
     }
 
     private async Task SaveAsync(CancellationToken cancellationToken)

@@ -70,6 +70,8 @@ public sealed class AppointmentCrmDbContext : DbContext
 
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
+    public DbSet<NotificationDelivery> NotificationDeliveries => Set<NotificationDelivery>();
+
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         GuardImmutableScheduleHistory();
@@ -100,6 +102,7 @@ public sealed class AppointmentCrmDbContext : DbContext
         ConfigureAppointments(modelBuilder);
         ConfigureAuditEntries(modelBuilder);
         ConfigureOutbox(modelBuilder);
+        ConfigureNotificationDeliveries(modelBuilder);
     }
 
     private void ConfigureUsers(ModelBuilder modelBuilder)
@@ -750,11 +753,25 @@ public sealed class AppointmentCrmDbContext : DbContext
             entity.Property(message => message.LastError)
                 .HasColumnName("last_error")
                 .HasMaxLength(2_000);
+            entity.Property(message => message.FailedAtUtc).HasColumnName("failed_at_utc");
+            entity.Property(message => message.LeaseId).HasColumnName("lease_id");
+            entity.Property(message => message.LockedUntilUtc)
+                .HasColumnName("locked_until_utc");
+            entity.Property(message => message.TraceParent)
+                .HasColumnName("trace_parent")
+                .HasMaxLength(128);
+            entity.Property(message => message.TraceState)
+                .HasColumnName("trace_state")
+                .HasMaxLength(512);
+            entity.Property(message => message.CorrelationId)
+                .HasColumnName("correlation_id")
+                .HasMaxLength(64);
             entity.HasIndex(message => new
             {
                 message.ProcessedAtUtc,
+                message.FailedAtUtc,
                 message.NextAttemptAtUtc,
-                message.OccurredAtUtc,
+                message.LockedUntilUtc,
             }).HasDatabaseName("ix_outbox_messages_pending");
             entity.HasIndex(message => new
             {
@@ -768,6 +785,60 @@ public sealed class AppointmentCrmDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
             entity.HasQueryFilter(message =>
                 _tenantContext.IsAvailable && message.TenantId == _tenantContext.TenantId);
+            entity.HasAlternateKey(message => new { message.TenantId, message.Id })
+                .HasName("ak_outbox_messages_tenant_id");
+        });
+    }
+
+    private void ConfigureNotificationDeliveries(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<NotificationDelivery>(entity =>
+        {
+            entity.ToTable("notification_deliveries");
+            entity.HasKey(delivery => delivery.Id);
+            entity.Property(delivery => delivery.Id).HasColumnName("id");
+            entity.Property(delivery => delivery.TenantId).HasColumnName("tenant_id");
+            entity.Property(delivery => delivery.OutboxMessageId)
+                .HasColumnName("outbox_message_id");
+            entity.Property(delivery => delivery.MessageType)
+                .HasColumnName("message_type")
+                .HasMaxLength(120);
+            entity.Property(delivery => delivery.AggregateType)
+                .HasColumnName("aggregate_type")
+                .HasMaxLength(80);
+            entity.Property(delivery => delivery.AggregateId).HasColumnName("aggregate_id");
+            entity.Property(delivery => delivery.DeliveredAtUtc)
+                .HasColumnName("delivered_at_utc");
+            entity.Property(delivery => delivery.TraceId)
+                .HasColumnName("trace_id")
+                .HasMaxLength(32);
+            entity.Property(delivery => delivery.CorrelationId)
+                .HasColumnName("correlation_id")
+                .HasMaxLength(64);
+            entity.HasIndex(delivery => new
+            {
+                delivery.TenantId,
+                delivery.OutboxMessageId,
+            })
+                .IsUnique()
+                .HasDatabaseName("ux_notification_deliveries_tenant_outbox");
+            entity.HasIndex(delivery => new
+            {
+                delivery.TenantId,
+                delivery.AggregateType,
+                delivery.AggregateId,
+            }).HasDatabaseName("ix_notification_deliveries_tenant_aggregate");
+            entity.HasOne<OutboxMessage>()
+                .WithMany()
+                .HasForeignKey(delivery => new
+                {
+                    delivery.TenantId,
+                    delivery.OutboxMessageId,
+                })
+                .HasPrincipalKey(message => new { message.TenantId, message.Id })
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasQueryFilter(delivery =>
+                _tenantContext.IsAvailable && delivery.TenantId == _tenantContext.TenantId);
         });
     }
 

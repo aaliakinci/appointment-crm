@@ -63,18 +63,17 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_HTTP_PORTS: 8080
       ConnectionStrings__Postgres: ${ConnectionStrings__Postgres:-Host=postgres;Port=5432;Database=appointment_crm;Username=appointment_crm;Password=change-me-local-only}
-      ConnectionStrings__Redis: redis:6379
+      ConnectionStrings__Redis: redis:6379,abortConnect=false,connectTimeout=1000,syncTimeout=1000
       Cors__AllowedOrigins__0: http://localhost:${APPOINTMENTCRM_WEB_PORT:-5173}
       Identity__RequireSecureCookie: ${APPOINTMENTCRM_SECURE_COOKIE:-false}
       DataProtection__UseEphemeralKeys: "true"
+      OpenTelemetry__Otlp__Endpoint: ${APPOINTMENTCRM_OTLP_ENDPOINT:-}
     ports:
       - "${APPOINTMENTCRM_API_PORT:-8080}:8080"
     depends_on:
       migrate:
         condition: service_completed_successfully
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     restart: unless-stopped
 

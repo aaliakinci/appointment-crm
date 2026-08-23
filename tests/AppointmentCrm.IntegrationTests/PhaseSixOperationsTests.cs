@@ -45,6 +45,7 @@ public sealed class PhaseSixOperationsTests : IClassFixture<ApiFactory>, IAsyncL
             TRUNCATE TABLE
                 appointment_status_history,
                 appointments,
+                notification_deliveries,
                 outbox_messages,
                 audit_entries,
                 user_sessions;

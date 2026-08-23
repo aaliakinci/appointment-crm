@@ -39,6 +39,7 @@ public sealed class SchedulingTests : IClassFixture<ApiFactory>, IAsyncLifetime
             TRUNCATE TABLE
                 appointment_status_history,
                 appointments,
+                notification_deliveries,
                 outbox_messages,
                 audit_entries,
                 date_schedule_override_periods,

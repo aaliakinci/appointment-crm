@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using AppointmentCrm.Application.Observability;
+using Microsoft.AspNetCore.Routing;
 
 namespace AppointmentCrm.Api.Observability;
 
@@ -17,10 +19,18 @@ internal sealed class RequestLoggingMiddleware(
         finally
         {
             stopwatch.Stop();
-            logger.LogInformation(
-                "HTTP {Method} {Path} responded {StatusCode} in {ElapsedMilliseconds} ms",
+            string route = context.GetEndpoint() is RouteEndpoint endpoint
+                ? endpoint.RoutePattern.RawText ?? "unmatched"
+                : "unmatched";
+            AppointmentCrmTelemetry.RecordHttpRequest(
                 context.Request.Method,
-                context.Request.Path.Value,
+                route,
+                context.Response.StatusCode,
+                stopwatch.Elapsed.TotalMilliseconds);
+            logger.LogInformation(
+                "HTTP {Method} {Route} responded {StatusCode} in {ElapsedMilliseconds} ms",
+                context.Request.Method,
+                route,
                 context.Response.StatusCode,
                 stopwatch.Elapsed.TotalMilliseconds);
         }

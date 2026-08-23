@@ -49,6 +49,18 @@ process.stdin.on("end", () => {
   }
 });'
 
+dependencies=$(curl --fail --silent --show-error \
+  "http://127.0.0.1:$smoke_api_port/health/dependencies")
+printf '%s' "$dependencies" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const body = JSON.parse(input);
+  if (body.status !== "Healthy" || body.checks?.["redis-cache"]?.status !== "Healthy") {
+    process.exit(1);
+  }
+});'
+
 login_response=$(curl --fail-with-body --silent --show-error \
   --request POST \
   --header "Content-Type: application/json" \
@@ -287,4 +299,4 @@ process.stdin.on("end", () => {
   }
 });'
 
-echo "Container scheduling, appointment, reporting, customer history, account, membership, and audit smoke passed."
+echo "Container health, Redis dependency, scheduling, appointment, reporting, customer history, account, membership, and audit smoke passed."

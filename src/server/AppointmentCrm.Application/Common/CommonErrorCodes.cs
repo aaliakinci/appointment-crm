@@ -9,6 +9,7 @@ public static class CommonErrorCodes
     public const string AuthenticationRequired = "common.authentication_required";
     public const string Forbidden = "common.forbidden";
     public const string RateLimited = "common.rate_limited";
+    public const string PayloadTooLarge = "common.payload_too_large";
     public const string UnexpectedError = "common.unexpected_error";
     public const string HttpError = "common.http_error";
 }

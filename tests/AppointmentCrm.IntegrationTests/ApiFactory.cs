@@ -13,6 +13,10 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         Environment.GetEnvironmentVariable("APPOINTMENTCRM_TEST_POSTGRES")
         ?? DefaultConnectionString;
 
+    public string RedisConnectionString { get; } =
+        Environment.GetEnvironmentVariable("APPOINTMENTCRM_TEST_REDIS")
+        ?? "127.0.0.1:6379,abortConnect=false,connectTimeout=1000,syncTimeout=1000";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");

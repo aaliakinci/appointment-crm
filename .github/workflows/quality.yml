@@ -31,14 +31,25 @@ jobs:
           --health-interval 3s
           --health-timeout 3s
           --health-retries 20
+      redis:
+        image: redis:8.8.1-alpine3.23
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
     env:
       APPOINTMENTCRM_TEST_POSTGRES: Host=127.0.0.1;Port=5432;Database=appointment_crm;Username=appointment_crm;Password=ci-only-password
+      APPOINTMENTCRM_TEST_REDIS: 127.0.0.1:6379,abortConnect=false,connectTimeout=1000,syncTimeout=1000
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           global-json-file: global.json
       - run: dotnet restore AppointmentCrm.slnx --locked-mode --disable-parallel --verbosity minimal -m:1
+      - run: dotnet list AppointmentCrm.slnx package --vulnerable --include-transitive
       - run: dotnet format AppointmentCrm.slnx --verify-no-changes --no-restore --verbosity minimal
       - run: dotnet build AppointmentCrm.slnx --configuration Release --no-restore --verbosity minimal -m:1
       - run: dotnet test tests/AppointmentCrm.UnitTests/AppointmentCrm.UnitTests.csproj --configuration Release --no-build --no-restore --verbosity minimal -m:1
@@ -58,6 +69,7 @@ jobs:
           cache: npm
           cache-dependency-path: src/web/package-lock.json
       - run: npm ci --no-audit --no-fund
+      - run: npm audit --audit-level=high
       - run: npm run format:check
       - run: npm run lint
       - run: npm run typecheck
@@ -71,4 +83,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - run: docker compose config --quiet
       - run: docker build --target quality --file deploy/web/Dockerfile .
+      - run: docker build --file deploy/api/Dockerfile --tag appointment-crm-api:${{ github.sha }} .
+      - run: docker build --file deploy/web/Dockerfile --tag appointment-crm-web:${{ github.sha }} .
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: appointment-crm-api:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          vuln-type: "os,library"
+          severity: "HIGH,CRITICAL"
+      - name: Scan web image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: appointment-crm-web:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          vuln-type: "os,library"
+          severity: "HIGH,CRITICAL"
       - run: scripts/container-smoke.sh

@@ -14,6 +14,7 @@ internal static class ApiErrorCodes
         StatusCodes.Status404NotFound => CommonErrorCodes.NotFound,
         StatusCodes.Status409Conflict => CommonErrorCodes.Conflict,
         StatusCodes.Status429TooManyRequests => CommonErrorCodes.RateLimited,
+        StatusCodes.Status413PayloadTooLarge => CommonErrorCodes.PayloadTooLarge,
         StatusCodes.Status500InternalServerError => CommonErrorCodes.UnexpectedError,
         _ => CommonErrorCodes.HttpError,
     };
