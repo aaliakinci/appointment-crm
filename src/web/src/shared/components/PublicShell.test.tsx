@@ -30,6 +30,7 @@ describe("PublicShell", () => {
 
     expect(markup).toContain('id="test-shell"');
     expect(markup).toContain('id="test-shell.main"');
+    expect(markup).toContain('tabindex="-1"');
     expect(markup).toContain('id="test-shell.locale.en"');
   });
 });

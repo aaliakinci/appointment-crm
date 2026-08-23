@@ -59,4 +59,38 @@ public sealed class CustomerTests
             null,
             DateTimeOffset.UtcNow));
     }
+
+    [Fact]
+    public void Create_NormalizesBlankOptionalsToNullAndRetainsOnlyAsciiPhoneDigits()
+    {
+        Customer customer = Customer.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "  Test Customer  ",
+            "   ",
+            "+90 (555) 010-20-30 ext.",
+            "\t",
+            DateTimeOffset.UtcNow);
+
+        Assert.Null(customer.Email);
+        Assert.Null(customer.NormalizedEmail);
+        Assert.Equal("905550102030", customer.NormalizedPhone);
+        Assert.Null(customer.Notes);
+    }
+
+    [Theory]
+    [InlineData("not-an-email")]
+    [InlineData("first@example.test,second@example.test")]
+    [InlineData("Name <person@example.test>")]
+    public void Create_RejectsNonCanonicalEmailValues(string email)
+    {
+        Assert.Throws<ArgumentException>(() => Customer.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Customer",
+            email,
+            null,
+            null,
+            DateTimeOffset.UtcNow));
+    }
 }

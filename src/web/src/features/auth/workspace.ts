@@ -1,1 +1,2 @@
-export { WorkspaceShell, type WorkspacePath } from "./components/WorkspaceShell";
+export { WorkspaceShell } from "./components/WorkspaceShell";
+export type { WorkspacePath } from "./model/workspaceNavigation";

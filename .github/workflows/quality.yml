@@ -52,8 +52,10 @@ jobs:
       - run: dotnet list AppointmentCrm.slnx package --vulnerable --include-transitive
       - run: dotnet format AppointmentCrm.slnx --verify-no-changes --no-restore --verbosity minimal
       - run: dotnet build AppointmentCrm.slnx --configuration Release --no-restore --verbosity minimal -m:1
-      - run: dotnet test tests/AppointmentCrm.UnitTests/AppointmentCrm.UnitTests.csproj --configuration Release --no-build --no-restore --verbosity minimal -m:1
-      - run: dotnet test tests/AppointmentCrm.IntegrationTests/AppointmentCrm.IntegrationTests.csproj --configuration Release --no-build --no-restore --verbosity minimal -m:1
+      - name: Domain and application unit gates
+        run: dotnet test tests/AppointmentCrm.UnitTests/AppointmentCrm.UnitTests.csproj --configuration Release --no-build --no-restore --verbosity minimal -m:1
+      - name: Release-blocking tenant, authorization, migration, concurrency, and journey gates
+        run: dotnet test tests/AppointmentCrm.IntegrationTests/AppointmentCrm.IntegrationTests.csproj --configuration Release --no-build --no-restore --verbosity minimal -m:1
 
   frontend:
     name: Frontend
@@ -75,6 +77,25 @@ jobs:
       - run: npm run typecheck
       - run: npm test -- --run
       - run: npm run build
+
+  browser-e2e:
+    name: Browser E2E and accessibility
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: src/web/.nvmrc
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - name: Install locked browser test dependencies
+        working-directory: src/web
+        run: npm ci --no-audit --no-fund
+      - name: Install pinned Chromium runtime
+        working-directory: src/web
+        run: npx playwright install --with-deps chromium
+      - name: Run isolated browser journey, permission, error, responsive, and accessibility gates
+        run: scripts/browser-e2e.sh
 
   containers:
     name: Containers

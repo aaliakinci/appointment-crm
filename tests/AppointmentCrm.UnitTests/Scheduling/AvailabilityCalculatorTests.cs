@@ -79,6 +79,67 @@ public sealed class AvailabilityCalculatorTests
         Assert.Equal(2, repeated.Select(slot => slot.StartUtc).Distinct().Count());
     }
 
+    [Fact]
+    public void Calculate_DoesNotBridgeAWorkingPeriodGap()
+    {
+        TimeZoneInfo timeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
+        var date = new DateOnly(2026, 8, 24);
+
+        IReadOnlyList<AvailabilitySlot> slots = AvailabilityCalculator.Calculate(
+            date,
+            timeZone,
+            30,
+            [
+                new AvailabilityPeriod(9 * 60, (10 * 60) + 15),
+                new AvailabilityPeriod((10 * 60) + 30, 12 * 60),
+            ],
+            []);
+
+        Assert.DoesNotContain(
+            slots,
+            slot => TimeOnly.FromDateTime(slot.LocalStart.DateTime) == new TimeOnly(10, 0));
+        Assert.Contains(
+            slots,
+            slot => TimeOnly.FromDateTime(slot.LocalStart.DateTime) == new TimeOnly(10, 30));
+    }
+
+    [Fact]
+    public void Calculate_IgnoresUnavailableIntervalsTouchingSlotBoundaries()
+    {
+        TimeZoneInfo timeZone = TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
+        var date = new DateOnly(2026, 8, 24);
+        DateTimeOffset tenUtc = LocalUtc(date, new TimeOnly(10, 0), timeZone);
+        DateTimeOffset elevenUtc = LocalUtc(date, new TimeOnly(11, 0), timeZone);
+
+        IReadOnlyList<AvailabilitySlot> slots = AvailabilityCalculator.Calculate(
+            date,
+            timeZone,
+            30,
+            [new AvailabilityPeriod(10 * 60, 11 * 60)],
+            [
+                new UnavailableInterval(tenUtc.AddMinutes(-30), tenUtc),
+                new UnavailableInterval(elevenUtc, elevenUtc.AddMinutes(30)),
+            ]);
+
+        Assert.Equal(7, slots.Count);
+        Assert.Equal(tenUtc, slots[0].StartUtc);
+        Assert.Equal(elevenUtc, slots[^1].EndUtc);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(31)]
+    [InlineData(485)]
+    public void Calculate_RejectsUnsupportedDuration(int durationMinutes)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => AvailabilityCalculator.Calculate(
+            new DateOnly(2026, 8, 24),
+            TimeZoneInfo.Utc,
+            durationMinutes,
+            [new AvailabilityPeriod(9 * 60, 17 * 60)],
+            []));
+    }
+
     private static DateTimeOffset LocalUtc(
         DateOnly date,
         TimeOnly time,

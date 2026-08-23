@@ -17,6 +17,9 @@
 - Tenant query filters, write guards, and database constraints that prevent cross-tenant membership access
 - Tenant-scoped customer, service, and employee management through ASP.NET Core controllers and Lily UI list/form/detail screens
 - Bounded server-side pagination, search, filtering, sorting, customer contact normalization, service pricing/duration validation, and employee-service assignments
+- Versioned tenant/employee working schedules, date overrides, time off, IANA time-zone handling, and availability calculation
+- Appointment lifecycle with service snapshots, optimistic concurrency, PostgreSQL-enforced overlap protection, day/week operations, customer history, and dashboard reporting
+- Durable outbox processing with bounded retry, an idempotent demo notification provider, tenant-scoped Redis dashboard caching with PostgreSQL fallback, and OpenTelemetry instrumentation
 - Same-tenant account-to-employee linking and actor-attributed audit records for critical create, archive, and activation changes
 
 ## Local development
@@ -62,7 +65,9 @@ With .NET 10, Node.js 22, npm, Docker, and Compose available, run the local qual
 ./scripts/verify.sh
 ```
 
-The gate verifies locked restores, formatting, zero-warning builds, backend unit/integration tests against PostgreSQL, frontend lint/type checks/tests/build, and the committed lockfiles. GitHub Actions executes the same checks and builds both runtime images. Authentication, session rotation, authorization, and tenant-isolation suites are release-blocking; appointment-concurrency coverage will join them when that capability is introduced.
+The gate verifies locked restores, formatting, zero-warning builds, backend unit/integration tests against PostgreSQL, frontend lint/type checks/tests/build, and the committed lockfiles. GitHub Actions additionally executes an isolated Chromium E2E/accessibility suite and scans both runtime images. Authentication, session rotation, authorization, tenant isolation, fresh/upgrade migrations, and appointment concurrency are release-blocking.
+
+Release operations and current product boundaries are recorded in [database release operations](docs/operations/database-release.md), the [release checklist](RELEASE_CHECKLIST.md), and [known limitations](KNOWN_LIMITATIONS.md).
 
 ## License
 

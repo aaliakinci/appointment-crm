@@ -41,7 +41,15 @@ export function PublicShell({
 
   return (
     <Box id={id} sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-      <a id={`${id}.skipLink`} className="skip-link" href={`#${mainId}`}>
+      <a
+        id={`${id}.skipLink`}
+        className="skip-link"
+        href={`#${mainId}`}
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById(mainId)?.focus();
+        }}
+      >
         {skipToContentLabel}
       </a>
       <Box
@@ -94,7 +102,13 @@ export function PublicShell({
           </Stack>
         </Container>
       </Box>
-      <Container id={mainId} component="main" maxWidth="lg" sx={{ py: { xs: 5, md: 8 } }}>
+      <Container
+        id={mainId}
+        component="main"
+        maxWidth="lg"
+        tabIndex={-1}
+        sx={{ py: { xs: 5, md: 8 } }}
+      >
         {children}
       </Container>
     </Box>

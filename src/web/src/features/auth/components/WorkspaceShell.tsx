@@ -10,17 +10,7 @@ import { useAppTranslation } from "@/i18n";
 import { LocaleSwitcher } from "@/shared/components";
 
 import { useAuth } from "../model/authContext";
-
-export type WorkspacePath =
-  | "/account"
-  | "/audit"
-  | "/appointments"
-  | "/customers"
-  | "/dashboard"
-  | "/employees"
-  | "/scheduling"
-  | "/services"
-  | "/team";
+import { workspaceNavigationFor, type WorkspacePath } from "../model/workspaceNavigation";
 
 interface WorkspaceShellProps extends PropsWithChildren {
   readonly id: string;
@@ -36,39 +26,20 @@ export function WorkspaceShell({ activePath, children, id, onNavigate }: Workspa
     return null;
   }
 
-  const permissions = new Set(session.activeTenant.permissions);
-  const navigation = [
-    permissions.has("reporting.read")
-      ? { path: "/dashboard" as const, label: t("app:navigation.dashboard") }
-      : null,
-    permissions.has("customers.read")
-      ? { path: "/customers" as const, label: t("app:navigation.customers") }
-      : null,
-    permissions.has("services.read")
-      ? { path: "/services" as const, label: t("app:navigation.services") }
-      : null,
-    permissions.has("employees.read")
-      ? { path: "/employees" as const, label: t("app:navigation.employees") }
-      : null,
-    permissions.has("appointments.read") || permissions.has("appointments.read-own")
-      ? { path: "/appointments" as const, label: t("app:navigation.appointments") }
-      : null,
-    permissions.has("scheduling.manage")
-      ? { path: "/scheduling" as const, label: t("app:navigation.scheduling") }
-      : null,
-    permissions.has("memberships.read")
-      ? { path: "/team" as const, label: t("app:navigation.team") }
-      : null,
-    permissions.has("reporting.read")
-      ? { path: "/audit" as const, label: t("app:navigation.audit") }
-      : null,
-    { path: "/account" as const, label: t("app:navigation.account") },
-  ].filter((item) => item !== null);
+  const navigation = workspaceNavigationFor(session.activeTenant.permissions);
   const mainId = `${id}.main`;
 
   return (
     <Box id={id} sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-      <a id={`${id}.skipLink`} className="skip-link" href={`#${mainId}`}>
+      <a
+        id={`${id}.skipLink`}
+        className="skip-link"
+        href={`#${mainId}`}
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById(mainId)?.focus();
+        }}
+      >
         {t("app:shell.skipToContent")}
       </a>
       <Box
@@ -118,7 +89,7 @@ export function WorkspaceShell({ activePath, children, id, onNavigate }: Workspa
                     void navigate(item.path);
                   }}
                 >
-                  {item.label}
+                  {t(item.labelKey)}
                 </Button>
               ))}
             </Stack>
@@ -131,7 +102,13 @@ export function WorkspaceShell({ activePath, children, id, onNavigate }: Workspa
           </Stack>
         </Container>
       </Box>
-      <Container id={mainId} component="main" maxWidth="xl" sx={{ py: { xs: 4, md: 6 } }}>
+      <Container
+        id={mainId}
+        component="main"
+        maxWidth="xl"
+        tabIndex={-1}
+        sx={{ py: { xs: 4, md: 6 } }}
+      >
         {children}
       </Container>
     </Box>

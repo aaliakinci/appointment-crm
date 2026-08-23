@@ -109,6 +109,105 @@ public sealed class AppointmentTests
         Assert.False(Appointment.OccupiesTime(AppointmentStatus.Cancelled));
     }
 
+    [Fact]
+    public void StateMachine_DeclaresTheCompleteTransitionMatrix()
+    {
+        var expected = new HashSet<(AppointmentStatus From, AppointmentStatus To)>
+        {
+            (AppointmentStatus.Scheduled, AppointmentStatus.Confirmed),
+            (AppointmentStatus.Scheduled, AppointmentStatus.Cancelled),
+            (AppointmentStatus.Scheduled, AppointmentStatus.NoShow),
+            (AppointmentStatus.Confirmed, AppointmentStatus.Completed),
+            (AppointmentStatus.Confirmed, AppointmentStatus.Cancelled),
+            (AppointmentStatus.Confirmed, AppointmentStatus.NoShow),
+        };
+
+        foreach (AppointmentStatus from in Enum.GetValues<AppointmentStatus>())
+        {
+            foreach (AppointmentStatus to in Enum.GetValues<AppointmentStatus>())
+            {
+                Assert.Equal(
+                    expected.Contains((from, to)),
+                    Appointment.CanTransition(from, to));
+            }
+        }
+    }
+
+    [Fact]
+    public void CompleteAfterStart_TrimsReasonAndCreatesHistory()
+    {
+        Appointment appointment = CreateAppointment();
+        appointment.TransitionTo(
+            AppointmentStatus.Confirmed,
+            1,
+            null,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Now.AddHours(1));
+
+        AppointmentStatusHistory completed = appointment.TransitionTo(
+            AppointmentStatus.Completed,
+            2,
+            "  Finished successfully  ",
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            appointment.StartsAtUtc.AddMinutes(1));
+
+        Assert.Equal(AppointmentStatus.Completed, appointment.Status);
+        Assert.Equal("Finished successfully", completed.Reason);
+        Assert.Equal(3, appointment.Revision);
+    }
+
+    [Fact]
+    public void Create_RejectsNonUtcBoundariesAndInvalidSnapshotEdges()
+    {
+        Assert.Throws<ArgumentException>(() => Appointment.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.FromHours(3)),
+            "Consultation",
+            30,
+            250m,
+            "TRY",
+            null,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Now));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Appointment.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Now.AddDays(1),
+            "Consultation",
+            31,
+            250m,
+            "TRY",
+            null,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Now));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Appointment.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Now.AddDays(1),
+            "Consultation",
+            30,
+            250.001m,
+            "TRY",
+            null,
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Now));
+    }
+
     private static Appointment CreateAppointment() =>
         Appointment.Create(
             Guid.NewGuid(),

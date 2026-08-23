@@ -150,6 +150,16 @@ internal sealed class AppointmentService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(input);
+        return await ExecuteScheduleWriteAsync(
+            input.EmployeeId,
+            () => CreateWithinScheduleLockAsync(input, cancellationToken),
+            cancellationToken);
+    }
+
+    private async Task<AppointmentDetail> CreateWithinScheduleLockAsync(
+        CreateAppointmentInput input,
+        CancellationToken cancellationToken)
+    {
         Customer customer = await dbContext.Customers.SingleOrDefaultAsync(
             candidate => candidate.Id == input.CustomerId,
             cancellationToken)
@@ -235,6 +245,26 @@ internal sealed class AppointmentService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(input);
+        Guid employeeId = await dbContext.Appointments
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == appointmentId)
+            .Select(candidate => (Guid?)candidate.EmployeeId)
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw NotFound();
+        return await ExecuteScheduleWriteAsync(
+            employeeId,
+            () => RescheduleWithinScheduleLockAsync(
+                appointmentId,
+                input,
+                cancellationToken),
+            cancellationToken);
+    }
+
+    private async Task<AppointmentDetail> RescheduleWithinScheduleLockAsync(
+        Guid appointmentId,
+        RescheduleAppointmentInput input,
+        CancellationToken cancellationToken)
+    {
         Appointment appointment = await GetTrackedAsync(appointmentId, cancellationToken);
         EnsureExpectedRevision(appointment, input.ExpectedRevision);
         DateTimeOffset startsAtUtc = input.StartsAtUtc.ToUniversalTime();
@@ -464,6 +494,26 @@ internal sealed class AppointmentService(
                 "The employee already has an appointment in the requested time range.",
                 exception);
         }
+    }
+
+    private async Task<T> ExecuteScheduleWriteAsync<T>(
+        Guid employeeId,
+        Func<Task<T>> operation,
+        CancellationToken cancellationToken)
+    {
+        var executionStrategy = dbContext.Database.CreateExecutionStrategy();
+        return await executionStrategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+            string lockResource = $"{tenantContext.TenantId:D}:{employeeId:D}";
+            _ = await dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT pg_advisory_xact_lock(hashtextextended({lockResource}, 0));",
+                cancellationToken);
+            T result = await operation();
+            await transaction.CommitAsync(cancellationToken);
+            return result;
+        });
     }
 
     private static void EnsureExpectedRevision(Appointment appointment, long expectedRevision)
