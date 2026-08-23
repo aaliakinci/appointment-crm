@@ -24,14 +24,14 @@ Appointment CRM provides these controls in one application:
 - Access tokens are short lived. Refresh tokens are single use, rotated, hashed in the database, and sent in an `HttpOnly` cookie.
 - Appointment changes, audit entries, history, and outbox messages are committed in the same transaction.
 - Redis stores only replaceable dashboard data. PostgreSQL remains the source of truth when Redis is unavailable.
-- The release pipeline builds non-root images and promotes them by immutable digest after quality, migration, and smoke gates pass.
+- The release pipeline builds non-root `amd64` and `arm64` images and promotes their scanned multi-architecture manifests by immutable digest after quality, migration, and smoke gates pass.
 
 See the [architecture overview](docs/architecture/overview.md), [tenant isolation](docs/architecture/tenant-isolation.md), and [appointment concurrency](docs/architecture/appointment-concurrency.md) for the main design decisions.
 
 ## Screenshots
 
-| Appointment detail | Working schedule |
-| --- | --- |
+| Appointment detail                                                          | Working schedule                                                             |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | ![Appointment detail and history](docs/assets/screenshots/appointments.png) | ![Versioned weekly working schedule](docs/assets/screenshots/scheduling.png) |
 
 ![Tenant reporting dashboard](docs/assets/screenshots/dashboard.png)
@@ -42,32 +42,31 @@ Watch the extended local product tour in [English](docs/assets/appointment-crm-d
 
 Requirements:
 
-- Docker Engine with Docker Compose
-- `curl`
+- Docker Desktop or Docker Engine with Compose v2
 
 Start the full local stack:
 
-```bash
-./scripts/dev.sh
+```text
+docker compose up --build --detach --wait --wait-timeout 120
 ```
 
 Open <http://localhost:5173>. The command builds and starts PostgreSQL, Redis, the migration job, API, and web application. It also waits for API readiness.
 
 Stop the stack without deleting the database volume:
 
-```bash
-./scripts/dev-down.sh
+```text
+docker compose down
 ```
 
 The local environment seeds two sample tenants. The default development-only password is `Demo-local-2026!`.
 
-| Account | Role | Workspace |
-| --- | --- | --- |
-| `owner@demo.local` | Owner | Atlas Salon and Northwind Consulting |
-| `manager@demo.local` | Manager | Atlas Salon |
-| `receptionist@demo.local` | Receptionist | Atlas Salon |
-| `employee@demo.local` | Employee | Atlas Salon |
-| `north.owner@demo.local` | Owner | Northwind Consulting |
+| Account                   | Role         | Workspace                            |
+| ------------------------- | ------------ | ------------------------------------ |
+| `owner@demo.local`        | Owner        | Atlas Salon and Northwind Consulting |
+| `manager@demo.local`      | Manager      | Atlas Salon                          |
+| `receptionist@demo.local` | Receptionist | Atlas Salon                          |
+| `employee@demo.local`     | Employee     | Atlas Salon                          |
+| `north.owner@demo.local`  | Owner        | Northwind Consulting                 |
 
 These credentials are only for an isolated local machine. Public and production environments use different secret and demo-account rules.
 
@@ -79,6 +78,8 @@ Useful endpoints:
 - Direct API: <http://localhost:8080>
 
 For native development, migrations, common problems, and debugging, see [local development](docs/operations/local-development.md).
+
+The local Compose workflow supports Linux, macOS with Docker Desktop, and Windows with Docker Desktop using Linux containers. Production deployment intentionally targets Linux hosts.
 
 ## Architecture
 
@@ -98,8 +99,8 @@ The full context, container, and module diagrams are in the [architecture overvi
 
 Native verification requires .NET 10, Node.js 22, npm, Docker, and Compose:
 
-```bash
-./scripts/verify.sh
+```text
+node scripts/verify.mjs
 ```
 
 The quality gate covers:

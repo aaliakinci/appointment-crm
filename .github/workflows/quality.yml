@@ -79,6 +79,38 @@ jobs:
       - run: npm test -- --run
       - run: npm run build
 
+  host-portability:
+    name: Host portability (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: src/web/.nvmrc
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - name: Build and run backend unit tests
+        run: |
+          dotnet restore AppointmentCrm.slnx --locked-mode --disable-parallel --verbosity minimal -m:1
+          dotnet build AppointmentCrm.slnx --configuration Release --no-restore --verbosity minimal -m:1
+          dotnet test tests/AppointmentCrm.UnitTests/AppointmentCrm.UnitTests.csproj --configuration Release --no-build --no-restore --verbosity minimal -m:1
+      - name: Build and run frontend quality checks
+        working-directory: src/web
+        run: |
+          npm ci --no-audit --no-fund
+          npm run format:check
+          npm run lint
+          npm run typecheck
+          npm test -- --run
+          npm run build
+
   browser-e2e:
     name: Browser E2E and accessibility
     runs-on: ubuntu-latest
@@ -96,19 +128,31 @@ jobs:
         working-directory: src/web
         run: npx playwright install --with-deps chromium
       - name: Run isolated browser journey, permission, error, responsive, and accessibility gates
-        run: scripts/browser-e2e.sh
+        run: node scripts/browser-e2e.mjs
 
   containers:
     name: Containers
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: src/web/.nvmrc
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - run: docker compose config --quiet
       - run: docker build --target quality --file deploy/web/Dockerfile .
       - run: docker build --file deploy/api/Dockerfile --tag appointment-crm-api:${{ github.sha }} .
       - run: docker build --file deploy/web/Dockerfile --tag appointment-crm-web:${{ github.sha }} .
       - run: docker build --file deploy/ops/Dockerfile --tag appointment-crm-ops:${{ github.sha }} .
-      - run: scripts/verify-deployment.sh
+      - name: Qualify arm64 runtime image builds
+        run: |
+          docker buildx build --platform linux/arm64 --provenance=false --output type=cacheonly --file deploy/api/Dockerfile .
+          docker buildx build --platform linux/arm64 --provenance=false --output type=cacheonly --file deploy/web/Dockerfile .
+          docker buildx build --platform linux/arm64 --provenance=false --output type=cacheonly --file deploy/ops/Dockerfile .
+      - run: node scripts/verify-deployment.mjs
       - name: Scan API image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -133,4 +177,4 @@ jobs:
           exit-code: "1"
           vuln-type: "os,library"
           severity: "HIGH,CRITICAL"
-      - run: scripts/container-smoke.sh
+      - run: node scripts/container-smoke.mjs

@@ -29,16 +29,16 @@ Use `deploy/environments/staging.env.example` or `production.env.example` to cre
 
 Create `/opt/appointment-crm/shared/<environment>/secrets` and `backups` owned by UID/GID `1654` with mode `0700`; every secret file must use mode `0600`. This keeps secrets readable by the non-root job containers without making them world-readable:
 
-| File | Content |
-| --- | --- |
-| `postgres-connection` | Npgsql connection string for the application/migration role |
-| `redis-connection` | Redis connection string with TLS/authentication settings |
-| `demo-password` | Unique 12+ character password for `receptionist@demo.local` |
-| `data-protection-password` | High-entropy password for the key-encryption certificate |
-| `data-protection.pfx` | Password-protected certificate containing its private key |
-| `postgres-maintenance-url` | libpq URI used by `pg_dump` |
-| `postgres-restore-url` | Temporary libpq URI for an isolated rehearsal database only; create only for the rehearsal and remove afterward |
-| `backup-passphrase` | High-entropy AES backup encryption passphrase |
+| File                       | Content                                                                                                         |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `postgres-connection`      | Npgsql connection string for the application/migration role                                                     |
+| `redis-connection`         | Redis connection string with TLS/authentication settings                                                        |
+| `demo-password`            | Unique 12+ character password for `receptionist@demo.local`                                                     |
+| `data-protection-password` | High-entropy password for the key-encryption certificate                                                        |
+| `data-protection.pfx`      | Password-protected certificate containing its private key                                                       |
+| `postgres-maintenance-url` | libpq URI used by `pg_dump`                                                                                     |
+| `postgres-restore-url`     | Temporary libpq URI for an isolated rehearsal database only; create only for the rehearsal and remove afterward |
+| `backup-passphrase`        | High-entropy AES backup encryption passphrase                                                                   |
 
 Generate the Data Protection certificate once, back it up in the approved secret store, and keep the same key volume/certificate across application restarts:
 
@@ -61,7 +61,7 @@ Create `staging`, `production`, `production-operations`, and `production-monitor
 
 Set `DEPLOY_ROOT` to `/opt/appointment-crm`. Define `DEMO_BASE_URL` as a repository-level Actions variable because the uptime job uses it before entering the `production-monitoring` Environment. Keep that Environment for monitoring ownership and access control. Configure at least one required reviewer on `production`; do not put a reviewer gate on scheduled `production-operations`.
 
-The release workflow builds API, web, and database-operations images once, scans those local images, pushes them to GHCR, records their registry digests, deploys the digests to staging, runs HTTPS smoke, pauses at the protected production Environment, and then deploys the identical digests. No image is rebuilt during promotion.
+The release workflow builds API, web, and database-operations images once for `linux/amd64` and once for `linux/arm64`. It uploads commit-scoped architecture images, scans both architectures, and publishes the final multi-architecture manifest only after every scan passes. The workflow records the manifest digests, deploys them to staging, runs HTTPS smoke, pauses at the protected production Environment, and then deploys the identical digests. No image is rebuilt during promotion.
 
 For a tag release, a successful production promotion also creates or updates the GitHub Release. It publishes the prepared notes and attaches a JSON manifest with the source commit, database migration, and exact API/web/operations image digests. A manual workflow run deploys a version but does not create a GitHub Release.
 

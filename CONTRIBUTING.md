@@ -29,4 +29,4 @@ NuGet and infrastructure dependencies must also be minimal, pinned through the a
 
 ## Definition of done
 
-A change is complete when its behavior, tests, migrations, API contracts, user-visible states, and operational impact have been updated in proportion to risk. The `Backend`, `Frontend`, and `Containers` CI checks must pass before merge.
+A change is complete when its behavior, tests, migrations, API contracts, user-visible states, and operational impact have been updated in proportion to risk. The `Backend`, `Frontend`, `Host portability`, and `Containers` CI checks must pass before merge.

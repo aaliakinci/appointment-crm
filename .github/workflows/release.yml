@@ -53,61 +53,107 @@ jobs:
             echo "version=$release_version"
             echo "schema_compatible=$compatibility"
           } >> "$GITHUB_OUTPUT"
-      - name: Build each runtime artifact once
+      - uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          platforms: arm64
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+      - name: Authenticate to GHCR for architecture image uploads
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Build and upload each architecture once
         env:
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           repository="ghcr.io/${GITHUB_REPOSITORY,,}"
-          docker build --file deploy/api/Dockerfile \
-            --build-arg VERSION="$RELEASE_VERSION" \
-            --build-arg VCS_REF="$GITHUB_SHA" \
-            --tag "$repository/api:$GITHUB_SHA" .
-          docker build --file deploy/web/Dockerfile \
-            --build-arg VERSION="$RELEASE_VERSION" \
-            --build-arg VCS_REF="$GITHUB_SHA" \
-            --tag "$repository/web:$GITHUB_SHA" .
-          docker build --file deploy/ops/Dockerfile \
-            --build-arg VERSION="$RELEASE_VERSION" \
-            --build-arg VCS_REF="$GITHUB_SHA" \
-            --tag "$repository/ops:$GITHUB_SHA" .
-      - name: Scan API image
+          for architecture in amd64 arm64; do
+            docker buildx build --platform "linux/$architecture" \
+              --file deploy/api/Dockerfile \
+              --provenance=false \
+              --build-arg VERSION="$RELEASE_VERSION" \
+              --build-arg VCS_REF="$GITHUB_SHA" \
+              --tag "$repository/api:$GITHUB_SHA-$architecture" \
+              --push .
+            docker buildx build --platform "linux/$architecture" \
+              --file deploy/web/Dockerfile \
+              --provenance=false \
+              --build-arg VERSION="$RELEASE_VERSION" \
+              --build-arg VCS_REF="$GITHUB_SHA" \
+              --tag "$repository/web:$GITHUB_SHA-$architecture" \
+              --push .
+            docker buildx build --platform "linux/$architecture" \
+              --file deploy/ops/Dockerfile \
+              --provenance=false \
+              --build-arg VERSION="$RELEASE_VERSION" \
+              --build-arg VCS_REF="$GITHUB_SHA" \
+              --tag "$repository/ops:$GITHUB_SHA-$architecture" \
+              --push .
+          done
+      - name: Scan API amd64 image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository }}/api:${{ github.sha }}-amd64
           format: table
           exit-code: "1"
           vuln-type: os,library
           severity: HIGH,CRITICAL
-      - name: Scan web image
+      - name: Scan API arm64 image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository }}/web:${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository }}/api:${{ github.sha }}-arm64
           format: table
           exit-code: "1"
           vuln-type: os,library
           severity: HIGH,CRITICAL
-      - name: Scan operations image
+      - name: Scan web amd64 image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: ghcr.io/${{ github.repository }}/ops:${{ github.sha }}
+          image-ref: ghcr.io/${{ github.repository }}/web:${{ github.sha }}-amd64
+          format: table
+          exit-code: "1"
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+      - name: Scan web arm64 image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/web:${{ github.sha }}-arm64
+          format: table
+          exit-code: "1"
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+      - name: Scan operations amd64 image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/ops:${{ github.sha }}-amd64
+          format: table
+          exit-code: "1"
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+      - name: Scan operations arm64 image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/ops:${{ github.sha }}-arm64
           format: table
           exit-code: "1"
           vuln-type: os,library
           severity: HIGH,CRITICAL
       - id: publish
-        name: Publish and record registry digests
-        env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: Publish scanned multi-architecture manifests and record digests
         run: |
           repository="ghcr.io/${GITHUB_REPOSITORY,,}"
-          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          for artifact in api web ops; do
-            docker push "$repository/$artifact:$GITHUB_SHA"
-          done
           {
-            echo "api_image=$(docker image inspect "$repository/api:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')"
-            echo "web_image=$(docker image inspect "$repository/web:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')"
-            echo "ops_image=$(docker image inspect "$repository/ops:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')"
+            for artifact in api web ops; do
+              image="$repository/$artifact:$GITHUB_SHA"
+              docker buildx imagetools create \
+                --tag "$image" \
+                "$repository/$artifact:$GITHUB_SHA-amd64" \
+                "$repository/$artifact:$GITHUB_SHA-arm64"
+              digest=$(docker buildx imagetools inspect "$image" \
+                | awk '$1 == "Digest:" { print $2; exit }')
+              test -n "$digest"
+              echo "${artifact}_image=$repository/$artifact@$digest"
+            done
           } >> "$GITHUB_OUTPUT"
 
   staging:

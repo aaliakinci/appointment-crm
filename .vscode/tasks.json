@@ -3,8 +3,23 @@
   "tasks": [
     {
       "label": "Appointment CRM: dev ortamını başlat",
-      "type": "shell",
-      "command": "${workspaceFolder}/scripts/dev.sh",
+      "type": "process",
+      "command": "docker",
+      "args": [
+        "compose",
+        "up",
+        "--build",
+        "--detach",
+        "--wait",
+        "--wait-timeout",
+        "120"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "APPOINTMENTCRM_BUILD_CONFIGURATION": "Debug"
+        }
+      },
       "problemMatcher": [],
       "presentation": {
         "reveal": "always",
