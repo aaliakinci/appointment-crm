@@ -1,4 +1,7 @@
-import { defineLilyForm, type LilyFormDefinition } from "@lily_platform/lily_ui/ui/forms";
+import {
+  defineLilyDateTimeForm,
+  type LilyDateTimeFormDefinition,
+} from "@lily_platform/lily_ui/ui/forms/date-fields";
 
 import { isIsoDate } from "./localDate";
 import { emptyPeriod, validatePeriods, type EditablePeriod } from "./schedulePeriod";
@@ -13,8 +16,8 @@ export function createDateOverrideDefinition(
   t: (key: string) => string,
   date: string,
   isClosed: boolean,
-): LilyFormDefinition<DateOverrideFormValues> {
-  return defineLilyForm<DateOverrideFormValues>({
+): LilyDateTimeFormDefinition<DateOverrideFormValues> {
+  return defineLilyDateTimeForm<DateOverrideFormValues>({
     id: "scheduling.date-override",
     defaultValues: {
       date,
@@ -47,10 +50,9 @@ export function createDateOverrideDefinition(
     },
     fields: {
       date: {
-        kind: "text",
-        label: t("app:scheduling.date"),
-        required: true,
-        helperText: "YYYY-MM-DD",
+        kind: "date",
+        label: `${t("app:scheduling.date")} *`,
+        invalidText: t("app:scheduling.dateInvalid"),
         fullWidth: true,
       },
     },

@@ -102,6 +102,48 @@ internal sealed class AppointmentService(
         return ToDetail(appointment, timeZone);
     }
 
+    public async Task<PagedResult<AppointmentSummary>> ListCustomerHistoryAsync(
+        Guid customerId,
+        PageRequest request,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        bool customerExists = await dbContext.Customers
+            .AsNoTracking()
+            .AnyAsync(customer => customer.Id == customerId, cancellationToken);
+        if (!customerExists)
+        {
+            throw new ApplicationNotFoundException(
+                AppointmentErrorCodes.CustomerNotFound,
+                "The requested customer was not found.");
+        }
+
+        TimeZoneInfo timeZone = await GetTenantTimeZoneAsync(cancellationToken);
+        IQueryable<Appointment> query = dbContext.Appointments
+            .AsNoTracking()
+            .Include(appointment => appointment.Customer)
+            .Include(appointment => appointment.Employee)
+            .Where(appointment => appointment.CustomerId == customerId);
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            string pattern = $"%{request.Search}%";
+            query = query.Where(appointment =>
+                EF.Functions.ILike(appointment.Employee.Name, pattern)
+                || EF.Functions.ILike(appointment.ServiceName, pattern));
+        }
+
+        int totalCount = await query.CountAsync(cancellationToken);
+        List<Appointment> appointments = await OrderAppointments(query, request)
+            .Skip(request.Skip)
+            .Take(request.PageSize)
+            .ToListAsync(cancellationToken);
+        return new PagedResult<AppointmentSummary>(
+            appointments.Select(appointment => ToSummary(appointment, timeZone)).ToList(),
+            request.Page,
+            request.PageSize,
+            totalCount);
+    }
+
     public async Task<AppointmentDetail> CreateAsync(
         CreateAppointmentInput input,
         CancellationToken cancellationToken)

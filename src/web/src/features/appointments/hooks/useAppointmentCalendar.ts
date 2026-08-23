@@ -11,6 +11,10 @@ import type {
   AppointmentScope,
   AppointmentStatus,
 } from "../api/appointmentContract";
+import {
+  appointmentCalendarRange,
+  appointmentCalendarSelectionChanged,
+} from "../model/appointmentCalendar";
 import { addDays, startOfIsoWeek, tenantToday, weekDates } from "../model/appointmentDate";
 
 interface UseAppointmentCalendarOptions {
@@ -25,8 +29,13 @@ export function useAppointmentCalendar({
   timeZone,
 }: UseAppointmentCalendarOptions) {
   const today = useMemo(() => tenantToday(timeZone), [timeZone]);
-  const [weekStart, setWeekStart] = useState(() => startOfIsoWeek(today));
-  const dates = useMemo(() => weekDates(weekStart), [weekStart]);
+  const [viewMode, setViewMode] = useState<"day" | "week">("week");
+  const [selectedDate, setSelectedDate] = useState(today);
+  const weekStart = useMemo(() => startOfIsoWeek(selectedDate), [selectedDate]);
+  const dates = useMemo(
+    () => (viewMode === "day" ? [selectedDate] : weekDates(weekStart)),
+    [selectedDate, viewMode, weekStart],
+  );
   const [appointments, setAppointments] = useState<readonly Appointment[]>([]);
   const [customers, setCustomers] = useState<readonly Customer[]>([]);
   const [employees, setEmployees] = useState<readonly Employee[]>([]);
@@ -40,9 +49,9 @@ export function useAppointmentCalendar({
 
   useEffect(() => {
     const controller = new AbortController();
+    const range = appointmentCalendarRange(dates);
     const query: AppointmentQuery = {
-      fromDate: dates[0]!,
-      toDate: dates[6]!,
+      ...range,
       employeeId: employeeFilter || undefined,
       status: statusFilter || undefined,
       page: 1,
@@ -115,27 +124,42 @@ export function useAppointmentCalendar({
     statusFilter,
     timeZone,
     today,
+    selectedDate,
+    viewMode,
     weekStart,
     reload,
     setEmployeeFilter: (value: string) => {
+      if (!appointmentCalendarSelectionChanged(employeeFilter, value)) return;
       setLoading(true);
       setEmployeeFilter(value);
     },
     setStatusFilter: (value: AppointmentStatus | "") => {
+      if (!appointmentCalendarSelectionChanged(statusFilter, value)) return;
       setLoading(true);
       setStatusFilter(value);
     },
-    previousWeek: () => {
+    previousPeriod: () => {
       setLoading(true);
-      setWeekStart((value) => addDays(value, -7));
+      setSelectedDate((value) => addDays(value, viewMode === "day" ? -1 : -7));
     },
-    nextWeek: () => {
+    nextPeriod: () => {
       setLoading(true);
-      setWeekStart((value) => addDays(value, 7));
+      setSelectedDate((value) => addDays(value, viewMode === "day" ? 1 : 7));
     },
-    currentWeek: () => {
+    currentPeriod: () => {
+      if (!appointmentCalendarSelectionChanged(selectedDate, today)) return;
       setLoading(true);
-      setWeekStart(startOfIsoWeek(today));
+      setSelectedDate(today);
+    },
+    setSelectedDate: (value: string) => {
+      if (!appointmentCalendarSelectionChanged(selectedDate, value)) return;
+      setLoading(true);
+      setSelectedDate(value);
+    },
+    setViewMode: (value: "day" | "week") => {
+      if (!appointmentCalendarSelectionChanged(viewMode, value)) return;
+      setLoading(true);
+      setViewMode(value);
     },
   };
 }

@@ -1,13 +1,17 @@
 using AppointmentCrm.Api.Appointments;
+using AppointmentCrm.Api.Auditing;
 using AppointmentCrm.Api.Customers;
 using AppointmentCrm.Api.Employees;
 using AppointmentCrm.Api.Identity;
+using AppointmentCrm.Api.Reporting;
 using AppointmentCrm.Api.Services;
 using AppointmentCrm.Application.Appointments;
+using AppointmentCrm.Application.Auditing;
 using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Customers;
 using AppointmentCrm.Application.Employees;
 using AppointmentCrm.Application.Identity;
+using AppointmentCrm.Application.Reporting;
 using AppointmentCrm.Application.Services;
 using AppointmentCrm.Contracts;
 using AppointmentCrm.Domain.Appointments;
@@ -149,5 +153,52 @@ public sealed class FeatureContractMappingTests
         AppointmentStatusHistoryResponse mappedHistory = Assert.Single(response.StatusHistory);
         Assert.Equal("scheduled", mappedHistory.FromStatus);
         Assert.Equal("confirmed", mappedHistory.ToStatus);
+    }
+
+    [Fact]
+    public void ReportingMappings_PreserveCompletedSnapshotRevenueAndBreakdowns()
+    {
+        var headline = new ReportingHeadline(3, 1, 0, 1, 0, 1, 750m);
+        var dashboard = new ReportingDashboard(
+            new DateOnly(2026, 8, 1),
+            new DateOnly(2026, 8, 31),
+            new DateOnly(2026, 8, 23),
+            "Europe/Istanbul",
+            "TRY",
+            headline,
+            headline,
+            [new ReportingStatusBreakdown(AppointmentStatus.Completed, 1, 750m)],
+            [new ReportingEmployeeBreakdown(Guid.NewGuid(), "Grace", 3, 1, 1, 750m)],
+            [new ReportingDailyBreakdown(new DateOnly(2026, 8, 23), 3, 1, 750m)]);
+
+        ReportingDashboardResponse response = dashboard.ToResponse();
+
+        Assert.Equal(750m, response.Range.CompletedRevenue);
+        Assert.Equal("completed", Assert.Single(response.ByStatus).Status);
+        Assert.Equal("Grace", Assert.Single(response.ByEmployee).EmployeeName);
+    }
+
+    [Fact]
+    public void AuditAndAccountMappings_PreserveSafeReadModelFields()
+    {
+        var audit = new AuditSummary(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Ada",
+            "appointment.completed",
+            "appointment",
+            Guid.NewGuid(),
+            "status=completed",
+            DateTimeOffset.Parse("2026-08-23T10:00:00Z"));
+        var auditPage = new PagedResult<AuditSummary>([audit], 1, 20, 1).ToResponse();
+        var profile = new AccountProfile(
+            Guid.NewGuid(),
+            "ada@example.test",
+            "Ada",
+            DateTimeOffset.Parse("2026-08-23T10:00:00Z"));
+
+        Assert.Equal(audit.Action, Assert.Single(auditPage.Items).Action);
+        Assert.Equal(audit.Summary, Assert.Single(auditPage.Items).Summary);
+        Assert.Equal(profile.DisplayName, profile.ToResponse().DisplayName);
     }
 }

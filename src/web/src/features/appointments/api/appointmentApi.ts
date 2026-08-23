@@ -30,6 +30,22 @@ export function listAppointments(
   });
 }
 
+export function listCustomerAppointmentHistory(
+  customerId: string,
+  query: Pick<AppointmentQuery, "page" | "pageSize" | "search" | "sortBy" | "sortDirection">,
+  signal?: AbortSignal,
+): Promise<PagedResponse<Appointment>> {
+  return appHttpClient.getData<PagedResponse<Appointment>>(
+    `/api/v1/customers/${encodeURIComponent(customerId)}/appointments`,
+    {
+      signal,
+      params: toQueryParams(query),
+      decode: decodeAppointmentPage,
+      metadata: { operationName: "appointments.customer-history" },
+    },
+  );
+}
+
 export function getAppointment(
   scope: AppointmentScope,
   appointmentId: string,

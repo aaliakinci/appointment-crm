@@ -18,7 +18,7 @@ interface SystemStatusFeatureProps {
 
 export function SystemStatusFeature({ id }: SystemStatusFeatureProps) {
   const navigate = useLilyNavigate();
-  const { t } = useAppTranslation();
+  const { changeLocale, locale, t } = useAppTranslation();
   const { session } = useAuth();
   const readiness = useSystemReadiness();
   const { state } = readiness;
@@ -31,11 +31,14 @@ export function SystemStatusFeature({ id }: SystemStatusFeatureProps) {
       id={`${id}.shell`}
       activePath="/"
       brandLabel={t("app:brand")}
+      languageLabel={t("app:shell.language")}
       statusLabel={t("app:navigation.status")}
       loginLabel={session ? t("app:navigation.account") : t("app:navigation.login")}
+      locale={locale}
       secondaryPath={session ? "/account" : "/login"}
       skipToContentLabel={t("app:shell.skipToContent")}
       portfolioNotice={t("app:shell.portfolioNotice")}
+      onLocaleChange={(nextLocale) => void changeLocale(nextLocale)}
       onNavigate={(path) => void navigate(path)}
     >
       <Stack id={`${id}.content`} spacing={4}>

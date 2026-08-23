@@ -112,7 +112,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/features/scheduling/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-syntax": [
         "error",
@@ -120,6 +120,11 @@ export default tseslint.config(
           selector: "ImportSpecifier[imported.name='useLilyBlocker']",
           message:
             "useLilyBlocker requires a React Router data router, while AppRouter currently uses the classic hash router.",
+        },
+        {
+          selector: "JSXAttribute[name.name='type'][value.value='date']",
+          message:
+            "Native date inputs are forbidden. Use LocalizedLilyDatePicker or a date field rendered by LocalizedLilyDateForm.",
         },
       ],
     },

@@ -5,20 +5,23 @@ import { Stack } from "@lily_platform/lily_ui/ui/atoms/Stack";
 import { LilyForm } from "@lily_platform/lily_ui/ui/forms";
 
 import type { useCustomerEditor } from "../hooks/useCustomerEditor";
+import type { useCustomerAppointmentHistory } from "../hooks/useCustomerAppointmentHistory";
+import { CustomerAppointmentHistory } from "./CustomerAppointmentHistory";
 
 interface CustomerEditorDialogProps {
   readonly id: string;
   readonly editor: ReturnType<typeof useCustomerEditor>;
+  readonly history: ReturnType<typeof useCustomerAppointmentHistory>;
   readonly t: (key: string) => string;
 }
 
-export function CustomerEditorDialog({ id, editor, t }: CustomerEditorDialogProps) {
+export function CustomerEditorDialog({ id, editor, history, t }: CustomerEditorDialogProps) {
   return (
     <Dialog
       id={id}
       open={editor.open}
       fullWidth
-      maxWidth="sm"
+      maxWidth={editor.selected ? "md" : "sm"}
       dialogTitle={
         editor.selected ? t("app:customers.detailTitle") : t("app:customers.createTitle")
       }
@@ -40,6 +43,9 @@ export function CustomerEditorDialog({ id, editor, t }: CustomerEditorDialogProp
             onSubmitInvalid={editor.clearError}
             onSubmitError={editor.handleSubmitError}
           />
+          {editor.selected && (
+            <CustomerAppointmentHistory id={`${id}.appointments`} history={history} t={t} />
+          )}
         </Stack>
       }
       actions={

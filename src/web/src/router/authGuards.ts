@@ -17,7 +17,12 @@ export class AnonymousGuard extends RouteGuard<AppRouterState> {
 
   canActivate(context: GuardContext<AppRouterState>): GuardResult {
     return context.state?.authentication === "authenticated"
-      ? { allow: false, redirectTo: "/account", replace: true, reason: "already-authenticated" }
+      ? {
+          allow: false,
+          redirectTo: workspaceLandingPath(context.state.permissions),
+          replace: true,
+          reason: "already-authenticated",
+        }
       : { allow: true };
   }
 }
@@ -30,6 +35,16 @@ abstract class PermissionGuard extends RouteGuard<AppRouterState> {
       ? { allow: true }
       : { allow: false, redirectTo: "/account", replace: true, reason: "permission-required" };
   }
+}
+
+export class ReportingReadGuard extends PermissionGuard {
+  readonly id = "reporting-read";
+  readonly permission = "reporting.read";
+}
+
+export class MembershipReadGuard extends PermissionGuard {
+  readonly id = "memberships-read";
+  readonly permission = "memberships.read";
 }
 
 export class CustomerReadGuard extends PermissionGuard {
@@ -62,4 +77,12 @@ export class AppointmentAccessGuard extends RouteGuard<AppRouterState> {
       ? { allow: true }
       : { allow: false, redirectTo: "/account", replace: true, reason: "permission-required" };
   }
+}
+
+export function workspaceLandingPath(permissions: readonly string[]): string {
+  if (permissions.includes("reporting.read")) return "/dashboard";
+  if (permissions.includes("appointments.read") || permissions.includes("appointments.read-own")) {
+    return "/appointments";
+  }
+  return "/account";
 }

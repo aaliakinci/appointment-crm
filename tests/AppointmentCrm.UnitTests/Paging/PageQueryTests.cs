@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
 using AppointmentCrm.Api.Appointments;
+using AppointmentCrm.Api.Auditing;
 using AppointmentCrm.Api.Controllers;
 using AppointmentCrm.Api.Customers;
 using AppointmentCrm.Api.Employees;
+using AppointmentCrm.Api.Reporting;
 using AppointmentCrm.Api.Services;
 using AppointmentCrm.Application.Common;
 
@@ -116,6 +118,45 @@ public sealed class PageQueryTests
             .ToArray();
         Assert.Contains(nameof(invalid.ToDate), members);
         Assert.Contains(nameof(invalid.Status), members);
+    }
+
+    [Fact]
+    public void ReportingQuery_MapsFiltersAndEnforcesBoundedRange()
+    {
+        var valid = new ReportingQuery
+        {
+            FromDate = new DateOnly(2026, 8, 1),
+            ToDate = new DateOnly(2026, 8, 31),
+            Status = " COMPLETED ",
+            EmployeeId = Guid.NewGuid(),
+        };
+
+        Assert.Empty(Validate(valid));
+        Assert.Equal(
+            AppointmentCrm.Domain.Appointments.AppointmentStatus.Completed,
+            valid.ToFilter().Status);
+
+        var invalid = new ReportingQuery
+        {
+            FromDate = new DateOnly(2026, 1, 1),
+            ToDate = new DateOnly(2026, 5, 1),
+            Status = "waiting",
+        };
+        string[] members = Validate(invalid).SelectMany(error => error.MemberNames).ToArray();
+        Assert.Contains(nameof(invalid.ToDate), members);
+        Assert.Contains(nameof(invalid.Status), members);
+    }
+
+    [Fact]
+    public void AuditAndCustomerHistoryQueries_UseTheirFeatureSortDefaults()
+    {
+        var audit = new AuditListQuery();
+        var history = new CustomerAppointmentQuery();
+
+        Assert.Equal("occurredAt", audit.ToPageRequest().SortBy);
+        Assert.True(audit.ToPageRequest().Descending);
+        Assert.Equal("start", history.ToPageRequest().SortBy);
+        Assert.True(history.ToPageRequest().Descending);
     }
 
     private static IReadOnlyList<ValidationResult> Validate(object value)

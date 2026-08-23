@@ -2,6 +2,7 @@ using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Identity;
 using AppointmentCrm.Application.Tenancy;
 using AppointmentCrm.Domain.Identity;
+using AppointmentCrm.Infrastructure.Auditing;
 using AppointmentCrm.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ namespace AppointmentCrm.Infrastructure.Identity;
 internal sealed class MembershipService(
     AppointmentCrmDbContext dbContext,
     ITenantContext tenantContext,
+    AuditWriter auditWriter,
     TimeProvider timeProvider) : IMembershipService
 {
     public async Task<IReadOnlyList<MembershipSummary>> ListAsync(
@@ -75,6 +77,15 @@ internal sealed class MembershipService(
         int previousVersion = membership.AuthorizationVersion;
         membership.ChangeRole(role, now);
         membership.SetActive(isActive, now);
+        if (membership.AuthorizationVersion != previousVersion)
+        {
+            auditWriter.Add(
+                "membership.authorization-changed",
+                "membership",
+                membership.Id,
+                now,
+                $"role={membership.Role};active={membership.IsActive.ToString().ToLowerInvariant()}");
+        }
         await dbContext.SaveChangesAsync(cancellationToken);
 
         if (membership.AuthorizationVersion != previousVersion)
@@ -112,8 +123,18 @@ internal sealed class MembershipService(
             }
         }
 
+        if (!membership.IsActive)
+        {
+            return true;
+        }
+
         var now = timeProvider.GetUtcNow();
         membership.SetActive(false, now);
+        auditWriter.Add(
+            "membership.archived",
+            "membership",
+            membership.Id,
+            now);
         await dbContext.SaveChangesAsync(cancellationToken);
         await RevokeMembershipSessionsAsync(membership.Id, now, cancellationToken);
         return true;

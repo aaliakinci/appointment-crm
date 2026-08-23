@@ -17,7 +17,7 @@ export default defineConfig({
     passWithNoTests: false,
     server: {
       deps: {
-        inline: [/@lily_platform\/lily_ui/],
+        inline: [/@lily_platform\/lily_ui/, /@mui\/x-date-pickers/],
       },
     },
   },

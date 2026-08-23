@@ -38,4 +38,18 @@ describe("authSessionStore", () => {
       }),
     ).toThrow("cannot initialize a session");
   });
+
+  it("updates the in-memory identity after a profile save without replacing the session", () => {
+    authSessionStore.setAuthentication(authenticatedResponse);
+    authSessionStore.updateUser({
+      id: "user-a",
+      email: "owner@demo.local",
+      displayName: "Portfolio Owner",
+    });
+
+    expect(authSessionStore.getSnapshot().session).toMatchObject({
+      accessToken: "protected-access-token",
+      user: { displayName: "Portfolio Owner" },
+    });
+  });
 });

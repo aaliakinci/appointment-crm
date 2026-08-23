@@ -78,6 +78,11 @@ public interface IAppointmentService
         AppointmentAccessScope accessScope,
         CancellationToken cancellationToken);
 
+    Task<PagedResult<AppointmentSummary>> ListCustomerHistoryAsync(
+        Guid customerId,
+        PageRequest request,
+        CancellationToken cancellationToken);
+
     Task<AppointmentDetail> CreateAsync(
         CreateAppointmentInput input,
         CancellationToken cancellationToken);

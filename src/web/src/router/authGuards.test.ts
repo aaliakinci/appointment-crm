@@ -5,7 +5,10 @@ import {
   AppointmentAccessGuard,
   AuthenticatedGuard,
   CustomerReadGuard,
+  MembershipReadGuard,
+  ReportingReadGuard,
   SchedulingManageGuard,
+  workspaceLandingPath,
 } from "./authGuards";
 
 const location = {
@@ -83,5 +86,26 @@ describe("authentication route guards", () => {
         state: { authentication: "authenticated", permissions: ["availability.read"] },
       }),
     ).toMatchObject({ allow: false });
+  });
+
+  it("keeps reporting and team routes behind their own permissions", () => {
+    expect(
+      new ReportingReadGuard().canActivate({
+        location,
+        state: { authentication: "authenticated", permissions: ["reporting.read"] },
+      }),
+    ).toMatchObject({ allow: true });
+    expect(
+      new MembershipReadGuard().canActivate({
+        location,
+        state: { authentication: "authenticated", permissions: ["reporting.read"] },
+      }),
+    ).toMatchObject({ allow: false, redirectTo: "/account" });
+  });
+
+  it("selects a permission-aware workspace landing route", () => {
+    expect(workspaceLandingPath(["reporting.read", "appointments.read"])).toBe("/dashboard");
+    expect(workspaceLandingPath(["appointments.read-own"])).toBe("/appointments");
+    expect(workspaceLandingPath([])).toBe("/account");
   });
 });

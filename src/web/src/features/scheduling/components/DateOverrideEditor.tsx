@@ -2,7 +2,8 @@ import { Alert } from "@lily_platform/lily_ui/ui/atoms/Alert";
 import { Button } from "@lily_platform/lily_ui/ui/atoms/Button";
 import { Stack } from "@lily_platform/lily_ui/ui/atoms/Stack";
 import { ToggleButton } from "@lily_platform/lily_ui/ui/atoms/ToggleButton";
-import { LilyForm } from "@lily_platform/lily_ui/ui/forms";
+
+import { LocalizedLilyDateForm } from "@/shared/forms/LocalizedLilyDateForm";
 
 import type { useDateOverrides } from "../hooks/useDateOverrides";
 import { PeriodArrayEditor } from "./PeriodArrayEditor";
@@ -32,7 +33,7 @@ export function DateOverrideEditor({ editor, id, t }: DateOverrideEditorProps) {
           ? t("app:scheduling.overrideClosedHelp")
           : t("app:scheduling.overrideOpenHelp")}
       </Alert>
-      <LilyForm
+      <LocalizedLilyDateForm
         key={editor.revision}
         definition={editor.definition}
         instanceId={`${id}.form.${editor.revision}`}

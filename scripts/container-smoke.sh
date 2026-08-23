@@ -215,4 +215,76 @@ curl --fail-with-body --silent --show-error \
   "http://127.0.0.1:$smoke_api_port/api/v1/appointments" \
   >/dev/null
 
-echo "Container schedule versioning, timezone, appointment lifecycle, conflict, and cancellation smoke passed."
+reporting_response=$(curl --fail-with-body --silent --show-error \
+  --header "$authorization" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/reporting/dashboard?fromDate=2035-01-15&toDate=2035-01-15&employeeId=$employee_id")
+printf '%s' "$reporting_response" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const body = JSON.parse(input);
+  if (body.range?.totalAppointments !== 2 || body.currency !== "TRY" || body.timeZone !== "Europe/Istanbul") {
+    process.exit(1);
+  }
+});'
+
+customer_history_response=$(curl --fail-with-body --silent --show-error \
+  --header "$authorization" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/customers/$customer_id/appointments?page=1&pageSize=20")
+printf '%s' "$customer_history_response" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const body = JSON.parse(input);
+  if (body.totalCount !== 2 || body.items?.some(item => item.customerId !== "40000000-0000-0000-0000-000000000001")) {
+    process.exit(1);
+  }
+});'
+
+profile_response=$(curl --fail-with-body --silent --show-error \
+  --header "$authorization" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/account/profile")
+printf '%s' "$profile_response" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const body = JSON.parse(input);
+  if (body.email !== "owner@demo.local" || body.displayName !== "Demo Owner") process.exit(1);
+});'
+
+sessions_response=$(curl --fail-with-body --silent --show-error \
+  --header "$authorization" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/account/sessions")
+printf '%s' "$sessions_response" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const body = JSON.parse(input);
+  if (!Array.isArray(body) || body.length !== 1 || body[0].isCurrent !== true) process.exit(1);
+});'
+
+memberships_response=$(curl --fail-with-body --silent --show-error \
+  --header "$authorization" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/memberships")
+printf '%s' "$memberships_response" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const body = JSON.parse(input);
+  if (!Array.isArray(body) || !body.some(item => item.role === "Owner" && item.isActive)) process.exit(1);
+});'
+
+audit_response=$(curl --fail-with-body --silent --show-error \
+  --header "$authorization" \
+  "http://127.0.0.1:$smoke_api_port/api/v1/audit?action=appointment.created&page=1&pageSize=20")
+printf '%s' "$audit_response" | node -e '
+let input = "";
+process.stdin.on("data", chunk => input += chunk);
+process.stdin.on("end", () => {
+  const body = JSON.parse(input);
+  if (body.totalCount !== 2 || body.items?.some(item => item.action !== "appointment.created")) {
+    process.exit(1);
+  }
+});'
+
+echo "Container scheduling, appointment, reporting, customer history, account, membership, and audit smoke passed."

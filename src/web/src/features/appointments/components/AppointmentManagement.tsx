@@ -11,6 +11,7 @@ import { useAppointmentCalendar } from "../hooks/useAppointmentCalendar";
 import { useAppointmentDetail } from "../hooks/useAppointmentDetail";
 import { useAppointmentEditor } from "../hooks/useAppointmentEditor";
 import { useAppointmentReschedule } from "../hooks/useAppointmentReschedule";
+import { useAppointmentQuickActions } from "../hooks/useAppointmentQuickActions";
 import { AppointmentDetailDialog } from "./AppointmentDetailDialog";
 import { AppointmentEditorDialog } from "./AppointmentEditorDialog";
 import { AppointmentRescheduleDialog } from "./AppointmentRescheduleDialog";
@@ -33,6 +34,11 @@ export function AppointmentManagement({ id }: AppointmentManagementProps) {
     timeZone: session?.activeTenant.timeZone ?? "UTC",
   });
   const detail = useAppointmentDetail({ onChanged: calendar.reload, scope, t });
+  const quickActions = useAppointmentQuickActions({
+    onChanged: calendar.reload,
+    scope,
+    t,
+  });
   const editor = useAppointmentEditor({
     customers: calendar.customers,
     employees: calendar.employees,
@@ -79,12 +85,21 @@ export function AppointmentManagement({ id }: AppointmentManagementProps) {
             {t("app:appointments.catalogError")}
           </Alert>
         )}
+        {quickActions.error && (
+          <Alert id={`${id}.quickActionError`} severity="error" onClose={quickActions.clearError}>
+            {quickActions.error}
+          </Alert>
+        )}
         <AppointmentWeek
           id={`${id}.week`}
           appointments={calendar.appointments}
           dates={calendar.dates}
           loading={calendar.loading}
           onSelect={detail.openDetail}
+          onQuickTransition={(appointment, transition) =>
+            void quickActions.transition(appointment, transition)
+          }
+          pendingAppointmentId={quickActions.pendingId}
           t={t}
           today={calendar.today}
         />

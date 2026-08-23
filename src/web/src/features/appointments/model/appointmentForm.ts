@@ -1,4 +1,7 @@
-import { defineLilyForm, type LilyFormDefinition } from "@lily_platform/lily_ui/ui/forms";
+import {
+  defineLilyDateTimeForm,
+  type LilyDateTimeFormDefinition,
+} from "@lily_platform/lily_ui/ui/forms/date-fields";
 
 export interface AppointmentFormValues {
   customerId: string;
@@ -15,8 +18,8 @@ export interface RescheduleFormValues {
 export function createAppointmentFormDefinition(
   t: (key: string) => string,
   date: string,
-): LilyFormDefinition<AppointmentFormValues> {
-  return defineLilyForm<AppointmentFormValues>({
+): LilyDateTimeFormDefinition<AppointmentFormValues> {
+  return defineLilyDateTimeForm<AppointmentFormValues>({
     id: "appointments.create",
     defaultValues: { customerId: "", serviceId: "", employeeId: "", date, notes: "" },
     validators: {
@@ -49,11 +52,10 @@ export function createAppointmentFormDefinition(
         fullWidth: true,
       },
       {
-        kind: "text",
+        kind: "date",
         name: "date",
-        label: t("app:appointments.date"),
-        helperText: "YYYY-MM-DD",
-        required: true,
+        label: `${t("app:appointments.date")} *`,
+        invalidText: t("app:appointments.dateInvalid"),
         fullWidth: true,
       },
       {
@@ -70,8 +72,8 @@ export function createAppointmentFormDefinition(
 export function createRescheduleFormDefinition(
   t: (key: string) => string,
   date: string,
-): LilyFormDefinition<RescheduleFormValues> {
-  return defineLilyForm<RescheduleFormValues>({
+): LilyDateTimeFormDefinition<RescheduleFormValues> {
+  return defineLilyDateTimeForm<RescheduleFormValues>({
     id: "appointments.reschedule",
     defaultValues: { date },
     validators: {
@@ -92,11 +94,10 @@ export function createRescheduleFormDefinition(
     containerProps: { spacing: 2 },
     fields: [
       {
-        kind: "text",
+        kind: "date",
         name: "date",
-        label: t("app:appointments.date"),
-        helperText: "YYYY-MM-DD",
-        required: true,
+        label: `${t("app:appointments.date")} *`,
+        invalidText: t("app:appointments.dateInvalid"),
         fullWidth: true,
       },
     ],

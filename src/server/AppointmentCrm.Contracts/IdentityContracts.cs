@@ -66,3 +66,25 @@ public sealed record MembershipReportResponse(
     int Total,
     int Active,
     IReadOnlyDictionary<string, int> ByRole);
+
+public sealed record UpdateProfileRequest(
+    [Required(ErrorMessage = "Display name is required.")]
+    [StringLength(
+        160,
+        MinimumLength = 2,
+        ErrorMessage = "Display name must contain between 2 and 160 characters.")]
+    string DisplayName);
+
+public sealed record AccountProfileResponse(
+    Guid UserId,
+    string Email,
+    string DisplayName,
+    DateTimeOffset UpdatedAtUtc);
+
+public sealed record AccountSessionResponse(
+    Guid Id,
+    string TenantName,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? LastUsedAtUtc,
+    DateTimeOffset ExpiresAtUtc,
+    bool IsCurrent);

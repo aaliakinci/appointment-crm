@@ -44,6 +44,13 @@ export const authSessionStore = {
     });
   },
   clear: (): void => update({ initialized: true, session: null }),
+  updateUser: (user: AuthenticatedUser): void => {
+    if (!snapshot.session) return;
+    update({
+      ...snapshot,
+      session: { ...snapshot.session, user },
+    });
+  },
   markInitialized: (): void => update({ ...snapshot, initialized: true }),
 };
 

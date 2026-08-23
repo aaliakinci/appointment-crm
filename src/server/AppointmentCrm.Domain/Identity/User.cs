@@ -62,6 +62,26 @@ public sealed class User
         UpdatedAtUtc = now;
     }
 
+    public void UpdateProfile(string displayName, DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
+        string trimmedDisplayName = displayName.Trim();
+        if (trimmedDisplayName.Length is < 2 or > 160)
+        {
+            throw new ArgumentException(
+                "Display name must contain between 2 and 160 characters.",
+                nameof(displayName));
+        }
+
+        if (string.Equals(DisplayName, trimmedDisplayName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        DisplayName = trimmedDisplayName;
+        UpdatedAtUtc = now;
+    }
+
     public void SetActive(bool isActive, DateTimeOffset now)
     {
         if (IsActive == isActive)

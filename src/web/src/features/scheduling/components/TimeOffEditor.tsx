@@ -1,5 +1,6 @@
 import { Button } from "@lily_platform/lily_ui/ui/atoms/Button";
-import { LilyForm } from "@lily_platform/lily_ui/ui/forms";
+
+import { LocalizedLilyDateForm } from "@/shared/forms/LocalizedLilyDateForm";
 
 import type { useTimeOff } from "../hooks/useTimeOff";
 
@@ -12,7 +13,7 @@ interface TimeOffEditorProps {
 export function TimeOffEditor({ editor, id, t }: TimeOffEditorProps) {
   return (
     <>
-      <LilyForm
+      <LocalizedLilyDateForm
         key={editor.revision}
         definition={editor.definition}
         instanceId={`${id}.form.${editor.revision}`}

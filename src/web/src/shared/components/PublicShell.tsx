@@ -5,6 +5,8 @@ import { Stack } from "@lily_platform/lily_ui/ui/atoms/Stack";
 import { Typography } from "@lily_platform/lily_ui/ui/atoms/Typography";
 import type { PropsWithChildren } from "react";
 
+import { LocaleSwitcher } from "./LocaleSwitcher";
+
 interface PublicShellProps extends PropsWithChildren {
   readonly id: string;
   readonly activePath: "/" | "/login" | "/account";
@@ -14,7 +16,10 @@ interface PublicShellProps extends PropsWithChildren {
   readonly loginLabel: string;
   readonly skipToContentLabel: string;
   readonly portfolioNotice: string;
+  readonly languageLabel: string;
+  readonly locale: string;
   readonly onNavigate: (path: "/" | "/login" | "/account") => void;
+  readonly onLocaleChange: (locale: "tr-TR" | "en-US") => void;
 }
 
 export function PublicShell({
@@ -22,7 +27,10 @@ export function PublicShell({
   activePath,
   brandLabel,
   children,
+  languageLabel,
   loginLabel,
+  locale,
+  onLocaleChange,
   onNavigate,
   portfolioNotice,
   skipToContentLabel,
@@ -77,6 +85,12 @@ export function PublicShell({
                 {loginLabel}
               </Button>
             </Stack>
+            <LocaleSwitcher
+              id={`${id}.locale`}
+              label={languageLabel}
+              locale={locale}
+              onChange={onLocaleChange}
+            />
           </Stack>
         </Container>
       </Box>

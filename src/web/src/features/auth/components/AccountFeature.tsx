@@ -9,6 +9,9 @@ import { Typography } from "@lily_platform/lily_ui/ui/atoms/Typography";
 import { useAppTranslation } from "@/i18n";
 
 import { useAccountSession } from "../hooks/useAccountSession";
+import { useAccountProfile } from "../hooks/useAccountProfile";
+import { AccountProfilePanel } from "./AccountProfilePanel";
+import { ActiveSessionsPanel } from "./ActiveSessionsPanel";
 import { WorkspaceShell } from "./WorkspaceShell";
 
 interface AccountFeatureProps {
@@ -18,6 +21,7 @@ interface AccountFeatureProps {
 export function AccountFeature({ id }: AccountFeatureProps) {
   const { t } = useAppTranslation();
   const account = useAccountSession();
+  const accountProfile = useAccountProfile();
   const session = account.session;
   if (!session) {
     return null;
@@ -25,7 +29,7 @@ export function AccountFeature({ id }: AccountFeatureProps) {
 
   return (
     <WorkspaceShell id={`${id}.shell`} activePath="/account">
-      <Stack id={`${id}.content`} spacing={4} sx={{ maxWidth: 760 }}>
+      <Stack id={`${id}.content`} spacing={4} sx={{ maxWidth: 920 }}>
         <Box id={`${id}.heading`}>
           <Typography
             id={`${id}.eyebrow`}
@@ -42,6 +46,8 @@ export function AccountFeature({ id }: AccountFeatureProps) {
             {session.user.email}
           </Typography>
         </Box>
+
+        <AccountProfilePanel id={`${id}.profile`} account={accountProfile} t={t} />
 
         {account.error && (
           <Alert id={`${id}.error`} severity="error">
@@ -102,6 +108,8 @@ export function AccountFeature({ id }: AccountFeatureProps) {
             </Stack>
           </Stack>
         </Box>
+
+        <ActiveSessionsPanel id={`${id}.sessions`} account={accountProfile} t={t} />
 
         <Stack id={`${id}.actions`} direction={{ xs: "column", sm: "row" }} spacing={2}>
           <Button

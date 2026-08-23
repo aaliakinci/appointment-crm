@@ -75,3 +75,17 @@ public sealed record MembershipReport(
     int Total,
     int Active,
     IReadOnlyDictionary<string, int> ByRole);
+
+public sealed record AccountProfile(
+    Guid UserId,
+    string Email,
+    string DisplayName,
+    DateTimeOffset UpdatedAtUtc);
+
+public sealed record AccountSession(
+    Guid Id,
+    string TenantName,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset? LastUsedAtUtc,
+    DateTimeOffset ExpiresAtUtc,
+    bool IsCurrent);

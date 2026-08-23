@@ -1,8 +1,10 @@
 using System.Reflection;
 using AppointmentCrm.Api.Appointments;
+using AppointmentCrm.Api.Auditing;
 using AppointmentCrm.Api.Customers;
 using AppointmentCrm.Api.Employees;
 using AppointmentCrm.Api.Identity;
+using AppointmentCrm.Api.Reporting;
 using AppointmentCrm.Api.Security;
 using AppointmentCrm.Api.Services;
 using AppointmentCrm.Application.Identity;
@@ -22,6 +24,9 @@ public sealed class ControllerAuthorizationTests
     [InlineData(typeof(EmployeesController))]
     [InlineData(typeof(AppointmentsController))]
     [InlineData(typeof(MyAppointmentsController))]
+    [InlineData(typeof(AccountController))]
+    [InlineData(typeof(ReportingController))]
+    [InlineData(typeof(AuditController))]
     public void IdentityControllers_RequireAuthenticationAtClassLevel(Type controllerType)
     {
         Assert.True(controllerType.IsSubclassOf(typeof(ControllerBase)));
@@ -78,6 +83,49 @@ public sealed class ControllerAuthorizationTests
         string expectedPolicy)
     {
         AssertPolicy(typeof(MembershipsController), methodName, expectedPolicy);
+    }
+
+    [Theory]
+    [InlineData(typeof(ReportingController), nameof(ReportingController.GetDashboardAsync))]
+    [InlineData(typeof(AuditController), nameof(AuditController.ListAsync))]
+    public void OperationalReadModels_RequireReportingPermission(
+        Type controllerType,
+        string methodName)
+    {
+        AssertPolicy(controllerType, methodName, Permissions.ReportingRead);
+    }
+
+    [Theory]
+    [InlineData(nameof(AccountController.ListSessionsAsync), Permissions.SessionManageOwn)]
+    [InlineData(nameof(AccountController.RevokeSessionAsync), Permissions.SessionManageOwn)]
+    public void AccountSessionActions_DeclareExpectedPolicy(
+        string methodName,
+        string expectedPolicy)
+    {
+        AssertPolicy(typeof(AccountController), methodName, expectedPolicy);
+    }
+
+    [Theory]
+    [InlineData(nameof(AccountController.UpdateProfileAsync))]
+    [InlineData(nameof(AccountController.RevokeSessionAsync))]
+    public void AccountMutations_ValidateTrustedOrigin(string methodName)
+    {
+        MethodInfo method = GetRequiredMethod(typeof(AccountController), methodName);
+        Assert.NotNull(method.GetCustomAttribute<ValidateTrustedOriginAttribute>());
+    }
+
+    [Fact]
+    public void CustomerAppointmentHistory_RequiresCustomerAndAppointmentReadPermissions()
+    {
+        MethodInfo method = GetRequiredMethod(
+            typeof(CustomersController),
+            nameof(CustomersController.ListAppointmentHistoryAsync));
+        string?[] policies = method.GetCustomAttributes<AuthorizeAttribute>()
+            .Select(attribute => attribute.Policy)
+            .ToArray();
+
+        Assert.Contains(Permissions.CustomerRead, policies);
+        Assert.Contains(Permissions.AppointmentRead, policies);
     }
 
     [Theory]

@@ -16,7 +16,7 @@ interface LoginFeatureProps {
 
 export function LoginFeature({ id }: LoginFeatureProps) {
   const navigate = useLilyNavigate();
-  const { t } = useAppTranslation();
+  const { changeLocale, locale, t } = useAppTranslation();
   const login = useLogin();
 
   return (
@@ -24,10 +24,13 @@ export function LoginFeature({ id }: LoginFeatureProps) {
       id={`${id}.shell`}
       activePath="/login"
       brandLabel={t("app:brand")}
+      languageLabel={t("app:shell.language")}
       statusLabel={t("app:navigation.status")}
       loginLabel={t("app:navigation.login")}
+      locale={locale}
       skipToContentLabel={t("app:shell.skipToContent")}
       portfolioNotice={t("app:shell.portfolioNotice")}
+      onLocaleChange={(nextLocale) => void changeLocale(nextLocale)}
       onNavigate={(path) => void navigate(path)}
     >
       <Stack id={`${id}.content`} spacing={3} sx={{ maxWidth: 560 }}>

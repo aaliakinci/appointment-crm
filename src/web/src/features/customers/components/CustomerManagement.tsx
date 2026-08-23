@@ -8,6 +8,7 @@ import { useAppTranslation } from "@/i18n";
 import { ManagementPageHeader } from "@/shared/components";
 
 import { useCustomerEditor } from "../hooks/useCustomerEditor";
+import { useCustomerAppointmentHistory } from "../hooks/useCustomerAppointmentHistory";
 import { useCustomerList } from "../hooks/useCustomerList";
 import { CustomerEditorDialog } from "./CustomerEditorDialog";
 import { CustomerFilters } from "./CustomerFilters";
@@ -23,6 +24,7 @@ export function CustomerManagement({ id }: CustomerManagementProps) {
   const canManage = session?.activeTenant.permissions.includes("customers.manage") ?? false;
   const list = useCustomerList();
   const editor = useCustomerEditor({ canManage, onSaved: list.reload, t });
+  const history = useCustomerAppointmentHistory(editor.selected?.id ?? null);
 
   return (
     <WorkspaceShell id={`${id}.shell`} activePath="/customers">
@@ -56,7 +58,7 @@ export function CustomerManagement({ id }: CustomerManagementProps) {
         )}
         <CustomerTable id={`${id}.table`} list={list} onSelect={editor.openDetail} t={t} />
       </Stack>
-      <CustomerEditorDialog id={`${id}.dialog`} editor={editor} t={t} />
+      <CustomerEditorDialog id={`${id}.dialog`} editor={editor} history={history} t={t} />
     </WorkspaceShell>
   );
 }

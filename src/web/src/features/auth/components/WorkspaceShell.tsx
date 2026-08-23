@@ -7,11 +7,20 @@ import { Typography } from "@lily_platform/lily_ui/ui/atoms/Typography";
 import type { PropsWithChildren } from "react";
 
 import { useAppTranslation } from "@/i18n";
+import { LocaleSwitcher } from "@/shared/components";
 
 import { useAuth } from "../model/authContext";
 
 export type WorkspacePath =
-  "/account" | "/customers" | "/services" | "/employees" | "/appointments" | "/scheduling";
+  | "/account"
+  | "/audit"
+  | "/appointments"
+  | "/customers"
+  | "/dashboard"
+  | "/employees"
+  | "/scheduling"
+  | "/services"
+  | "/team";
 
 interface WorkspaceShellProps extends PropsWithChildren {
   readonly id: string;
@@ -21,7 +30,7 @@ interface WorkspaceShellProps extends PropsWithChildren {
 
 export function WorkspaceShell({ activePath, children, id, onNavigate }: WorkspaceShellProps) {
   const navigate = useLilyNavigate();
-  const { t } = useAppTranslation();
+  const { changeLocale, locale, t } = useAppTranslation();
   const { session } = useAuth();
   if (!session) {
     return null;
@@ -29,6 +38,9 @@ export function WorkspaceShell({ activePath, children, id, onNavigate }: Workspa
 
   const permissions = new Set(session.activeTenant.permissions);
   const navigation = [
+    permissions.has("reporting.read")
+      ? { path: "/dashboard" as const, label: t("app:navigation.dashboard") }
+      : null,
     permissions.has("customers.read")
       ? { path: "/customers" as const, label: t("app:navigation.customers") }
       : null,
@@ -43,6 +55,12 @@ export function WorkspaceShell({ activePath, children, id, onNavigate }: Workspa
       : null,
     permissions.has("scheduling.manage")
       ? { path: "/scheduling" as const, label: t("app:navigation.scheduling") }
+      : null,
+    permissions.has("memberships.read")
+      ? { path: "/team" as const, label: t("app:navigation.team") }
+      : null,
+    permissions.has("reporting.read")
+      ? { path: "/audit" as const, label: t("app:navigation.audit") }
       : null,
     { path: "/account" as const, label: t("app:navigation.account") },
   ].filter((item) => item !== null);
@@ -104,6 +122,12 @@ export function WorkspaceShell({ activePath, children, id, onNavigate }: Workspa
                 </Button>
               ))}
             </Stack>
+            <LocaleSwitcher
+              id={`${id}.locale`}
+              label={t("app:shell.language")}
+              locale={locale}
+              onChange={(nextLocale) => void changeLocale(nextLocale)}
+            />
           </Stack>
         </Container>
       </Box>

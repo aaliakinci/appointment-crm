@@ -2,7 +2,8 @@ import { Alert } from "@lily_platform/lily_ui/ui/atoms/Alert";
 import { Button } from "@lily_platform/lily_ui/ui/atoms/Button";
 import { Dialog } from "@lily_platform/lily_ui/ui/atoms/Dialog";
 import { Stack } from "@lily_platform/lily_ui/ui/atoms/Stack";
-import { LilyForm } from "@lily_platform/lily_ui/ui/forms";
+
+import { LocalizedLilyDateForm } from "@/shared/forms/LocalizedLilyDateForm";
 
 import type { useAppointmentEditor } from "../hooks/useAppointmentEditor";
 import { AvailabilitySlotPicker } from "./AvailabilitySlotPicker";
@@ -29,7 +30,7 @@ export function AppointmentEditorDialog({ editor, id, t }: AppointmentEditorDial
               {editor.error}
             </Alert>
           )}
-          <LilyForm
+          <LocalizedLilyDateForm
             definition={editor.definition}
             instanceId={`${id}.form.${editor.revision}`}
             bindings={editor.bindings}

@@ -47,3 +47,25 @@ public interface IMembershipService
 
     Task<MembershipReport> GetReportAsync(CancellationToken cancellationToken);
 }
+
+public interface IAccountService
+{
+    Task<AccountProfile> GetProfileAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    Task<AccountProfile> UpdateProfileAsync(
+        Guid userId,
+        string displayName,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<AccountSession>> ListActiveSessionsAsync(
+        Guid userId,
+        Guid currentSessionId,
+        CancellationToken cancellationToken);
+
+    Task<bool> RevokeSessionAsync(
+        Guid userId,
+        Guid sessionId,
+        CancellationToken cancellationToken);
+}

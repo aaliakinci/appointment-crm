@@ -1,3 +1,4 @@
 export { AppErrorBoundary } from "./AppErrorBoundary";
-export { PublicShell } from "./PublicShell";
+export { LocaleSwitcher } from "./LocaleSwitcher";
 export { ManagementPageHeader } from "./ManagementPageHeader";
+export { PublicShell } from "./PublicShell";

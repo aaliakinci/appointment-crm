@@ -1,8 +1,30 @@
 import { describe, expect, it } from "vitest";
 
 import { createDateOverrideDefinition } from "./dateOverrideForm";
+import { createAvailabilityDefinition } from "./availabilityForm";
 import { addLocalDays } from "./localDate";
 import { fromMinute, toMinute } from "./schedulePeriod";
+import { createTimeOffDefinition } from "./timeOffForm";
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getFieldKind(definition: unknown, name: string): unknown {
+  if (!isRecord(definition)) return undefined;
+
+  const fields = definition["fields"];
+  if (Array.isArray(fields)) {
+    const field = (fields as unknown[]).find(
+      (candidate) => isRecord(candidate) && candidate["name"] === name,
+    );
+    return isRecord(field) ? field["kind"] : undefined;
+  }
+
+  if (!isRecord(fields)) return undefined;
+  const field = fields[name];
+  return isRecord(field) ? field["kind"] : undefined;
+}
 
 describe("scheduling form mappings", () => {
   it("maps local clock values without creating browser-zone instants", () => {
@@ -24,5 +46,16 @@ describe("scheduling form mappings", () => {
 
     expect(closedContent.some((node) => node.kind === "array")).toBe(false);
     expect(openContent.some((node) => node.kind === "array")).toBe(true);
+  });
+
+  it("uses Lily UI date fields for every scheduling date input", () => {
+    const t = (key: string) => key;
+    const dateOverride = createDateOverrideDefinition(t, "2026-08-23", true);
+    const availability = createAvailabilityDefinition(t, "2026-08-23");
+    const timeOff = createTimeOffDefinition(t, "2026-08-23");
+    expect(getFieldKind(dateOverride, "date")).toBe("date");
+    expect(getFieldKind(availability, "date")).toBe("date");
+    expect(getFieldKind(timeOff, "startDate")).toBe("date");
+    expect(getFieldKind(timeOff, "endDate")).toBe("date");
   });
 });

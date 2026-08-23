@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 
 import { useAppTranslation } from "@/i18n";
 import { mapApiValidationError } from "@/shared/forms";
+import { workspaceLandingPath } from "@/router/authGuards";
 
 import type { TenantOption } from "../api/authContract";
 import { useAuth } from "../model/authContext";
@@ -74,7 +75,7 @@ export function useLogin() {
         return;
       }
 
-      await navigate("/account");
+      await navigate(workspaceLandingPath(response.activeTenant?.permissions ?? []));
     } catch (submitError) {
       const invalid = mapApiValidationError<LoginFormValues>(submitError, [
         "email",

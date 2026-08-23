@@ -3,10 +3,10 @@ import { Button } from "@lily_platform/lily_ui/ui/atoms/Button";
 import { Paper } from "@lily_platform/lily_ui/ui/atoms/Paper";
 import { Stack } from "@lily_platform/lily_ui/ui/atoms/Stack";
 import { Typography } from "@lily_platform/lily_ui/ui/atoms/Typography";
-import { LilyForm } from "@lily_platform/lily_ui/ui/forms";
 
 import type { Employee } from "@/features/employees/catalog";
 import type { ServiceOffering } from "@/features/services/catalog";
+import { LocalizedLilyDateForm } from "@/shared/forms/LocalizedLilyDateForm";
 
 import { useAvailability } from "../hooks/useAvailability";
 import { AvailabilityResults } from "./AvailabilityResults";
@@ -46,7 +46,7 @@ export function AvailabilityPanel({
             {query.error}
           </Alert>
         )}
-        <LilyForm
+        <LocalizedLilyDateForm
           definition={query.definition}
           instanceId={`${id}.form`}
           bindings={query.bindings}

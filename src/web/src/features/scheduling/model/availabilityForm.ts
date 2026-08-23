@@ -1,4 +1,7 @@
-import { defineLilyForm, type LilyFormDefinition } from "@lily_platform/lily_ui/ui/forms";
+import {
+  defineLilyDateTimeForm,
+  type LilyDateTimeFormDefinition,
+} from "@lily_platform/lily_ui/ui/forms/date-fields";
 
 import { isIsoDate } from "./localDate";
 
@@ -11,8 +14,8 @@ export interface AvailabilityFormValues {
 export function createAvailabilityDefinition(
   t: (key: string) => string,
   date: string,
-): LilyFormDefinition<AvailabilityFormValues> {
-  return defineLilyForm<AvailabilityFormValues>({
+): LilyDateTimeFormDefinition<AvailabilityFormValues> {
+  return defineLilyDateTimeForm<AvailabilityFormValues>({
     id: "scheduling.availability",
     defaultValues: { date, employeeId: "", serviceId: "" },
     validators: {
@@ -45,11 +48,10 @@ export function createAvailabilityDefinition(
     containerProps: { spacing: 2 },
     fields: [
       {
-        kind: "text",
+        kind: "date",
         name: "date",
-        label: t("app:scheduling.date"),
-        required: true,
-        helperText: "YYYY-MM-DD",
+        label: `${t("app:scheduling.date")} *`,
+        invalidText: t("app:scheduling.dateInvalid"),
         fullWidth: true,
       },
       {

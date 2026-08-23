@@ -1,4 +1,6 @@
+using AppointmentCrm.Api.Appointments;
 using AppointmentCrm.Api.Security;
+using AppointmentCrm.Application.Appointments;
 using AppointmentCrm.Application.Common;
 using AppointmentCrm.Application.Customers;
 using AppointmentCrm.Application.Identity;
@@ -21,7 +23,9 @@ namespace AppointmentCrm.Api.Customers;
 [ProducesResponseType<ProblemDetails>(
     StatusCodes.Status500InternalServerError,
     "application/problem+json")]
-public sealed class CustomersController(ICustomerService customerService) : ControllerBase
+public sealed class CustomersController(
+    ICustomerService customerService,
+    IAppointmentService appointmentService) : ControllerBase
 {
     [HttpGet]
     [Authorize(Policy = Permissions.CustomerRead)]
@@ -54,6 +58,30 @@ public sealed class CustomersController(ICustomerService customerService) : Cont
             customerId,
             cancellationToken);
         return customer is null ? NotFound() : Ok(customer.ToResponse());
+    }
+
+    [HttpGet("{customerId:guid}/appointments")]
+    [Authorize(Policy = Permissions.CustomerRead)]
+    [Authorize(Policy = Permissions.AppointmentRead)]
+    [ProducesResponseType<PagedResponse<AppointmentSummaryResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(
+        StatusCodes.Status400BadRequest,
+        "application/problem+json")]
+    [ProducesResponseType<ProblemDetails>(
+        StatusCodes.Status404NotFound,
+        "application/problem+json")]
+    public async Task<ActionResult<PagedResponse<AppointmentSummaryResponse>>>
+        ListAppointmentHistoryAsync(
+            Guid customerId,
+            [FromQuery] CustomerAppointmentQuery query,
+            CancellationToken cancellationToken)
+    {
+        PagedResult<AppointmentSummary> result =
+            await appointmentService.ListCustomerHistoryAsync(
+                customerId,
+                query.ToPageRequest(),
+                cancellationToken);
+        return Ok(result.ToResponse());
     }
 
     [HttpPost]

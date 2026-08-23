@@ -2,7 +2,8 @@ import { Alert } from "@lily_platform/lily_ui/ui/atoms/Alert";
 import { Button } from "@lily_platform/lily_ui/ui/atoms/Button";
 import { Dialog } from "@lily_platform/lily_ui/ui/atoms/Dialog";
 import { Stack } from "@lily_platform/lily_ui/ui/atoms/Stack";
-import { LilyForm } from "@lily_platform/lily_ui/ui/forms";
+
+import { LocalizedLilyDateForm } from "@/shared/forms/LocalizedLilyDateForm";
 
 import type { useAppointmentReschedule } from "../hooks/useAppointmentReschedule";
 import { AvailabilitySlotPicker } from "./AvailabilitySlotPicker";
@@ -33,7 +34,7 @@ export function AppointmentRescheduleDialog({
               {reschedule.error}
             </Alert>
           )}
-          <LilyForm
+          <LocalizedLilyDateForm
             definition={reschedule.definition}
             instanceId={`${id}.form.${reschedule.revision}`}
             controller={reschedule.controller}

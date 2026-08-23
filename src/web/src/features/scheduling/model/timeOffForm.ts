@@ -1,4 +1,7 @@
-import { defineLilyForm, type LilyFormDefinition } from "@lily_platform/lily_ui/ui/forms";
+import {
+  defineLilyDateTimeForm,
+  type LilyDateTimeFormDefinition,
+} from "@lily_platform/lily_ui/ui/forms/date-fields";
 
 import { createFieldValidators } from "@/shared/forms";
 
@@ -17,7 +20,7 @@ export interface TimeOffFormValues {
 export function createTimeOffDefinition(
   t: (key: string) => string,
   date: string,
-): LilyFormDefinition<TimeOffFormValues> {
+): LilyDateTimeFormDefinition<TimeOffFormValues> {
   const dateValidators = createFieldValidators(
     isIsoDate,
     "scheduling.date",
@@ -28,7 +31,7 @@ export function createTimeOffDefinition(
     "scheduling.time",
     t("app:scheduling.timeInvalid"),
   );
-  return defineLilyForm<TimeOffFormValues>({
+  return defineLilyDateTimeForm<TimeOffFormValues>({
     id: "scheduling.time-off",
     defaultValues: {
       employeeId: "",
@@ -64,11 +67,10 @@ export function createTimeOffDefinition(
         fullWidth: true,
       },
       {
-        kind: "text",
+        kind: "date",
         name: "startDate",
-        label: t("app:scheduling.startDate"),
-        required: true,
-        helperText: "YYYY-MM-DD",
+        label: `${t("app:scheduling.startDate")} *`,
+        invalidText: t("app:scheduling.dateInvalid"),
         validators: dateValidators,
         fullWidth: true,
       },
@@ -82,11 +84,10 @@ export function createTimeOffDefinition(
         fullWidth: true,
       },
       {
-        kind: "text",
+        kind: "date",
         name: "endDate",
-        label: t("app:scheduling.endDate"),
-        required: true,
-        helperText: "YYYY-MM-DD",
+        label: `${t("app:scheduling.endDate")} *`,
+        invalidText: t("app:scheduling.dateInvalid"),
         validators: dateValidators,
         fullWidth: true,
       },
