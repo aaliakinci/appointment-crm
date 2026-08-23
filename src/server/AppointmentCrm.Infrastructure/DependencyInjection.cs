@@ -55,6 +55,12 @@ public static class DependencyInjection
             .Validate(
                 options => !options.Enabled || options.Password.Length >= 12,
                 "DemoSeed:Password must contain at least 12 characters when demo seeding is enabled.")
+            .Validate(
+                options => !options.ResetEnabled || options.Enabled,
+                "DemoSeed:Enabled must be true when demo reset is enabled.")
+            .Validate(
+                options => !options.ResetEnabled || options.PublicMode,
+                "DemoSeed:PublicMode must be true when demo reset is enabled.")
             .ValidateOnStart();
         services.AddOptions<OutboxOptions>()
             .BindConfiguration(OutboxOptions.SectionName)
@@ -126,6 +132,7 @@ public static class DependencyInjection
         services.AddScoped<IEmployeeManagementService, EmployeeManagementService>();
         services.AddScoped<ISchedulingService, SchedulingService>();
         services.AddScoped<DemoDataSeeder>();
+        services.AddScoped<DemoDataResetter>();
         services.AddSingleton<INotificationProvider, DemoNotificationProvider>();
         services.AddSingleton<OutboxProcessor>();
         services.AddHostedService<OutboxWorker>();

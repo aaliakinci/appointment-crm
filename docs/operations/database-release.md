@@ -7,7 +7,7 @@ Appointment CRM uses forward-only EF Core migrations. A release runs migration o
 1. Record the immutable API and web image digests and the target migration ID.
 2. Stop if CI has not passed both the empty-database and previous-release upgrade tests.
 3. Confirm the migration is compatible with the currently running API image. Prefer additive columns, tables, and indexes; split destructive changes across releases.
-4. Create a PostgreSQL backup and verify that its object-store checksum, encryption, retention, and restore credentials are available.
+4. Create a PostgreSQL backup and verify that its object-store checksum, encryption, retention, and restore credentials are available. Use the repository's guarded procedure in [backup and restore](backup-restore.md).
 5. Run the migration job exactly once with the same API artifact that will be deployed:
 
    ```bash
@@ -16,7 +16,7 @@ Appointment CRM uses forward-only EF Core migrations. A release runs migration o
 
 6. Verify migration completion before starting or promoting API replicas. Then run readiness and product smoke checks through the web reverse proxy.
 
-The repository's local Compose `migrate` service demonstrates this ordering. Production orchestration must supply production secrets externally and keep `DemoSeed__Enabled=false`.
+The repository's local Compose `migrate` service demonstrates this ordering. Production uses the one-shot service in `deploy/compose.release.yaml`; only that job may enable public demo seeding. Long-running API replicas keep `DemoSeed__Enabled=false`.
 
 ## Backup and restore rehearsal
 

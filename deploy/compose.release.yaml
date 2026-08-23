@@ -1,0 +1,179 @@
+name: appointment-crm-${APPOINTMENTCRM_ENVIRONMENT_SLUG:?environment slug is required}
+
+x-api-environment: &api-environment
+  ASPNETCORE_ENVIRONMENT: ${APPOINTMENTCRM_ASPNETCORE_ENVIRONMENT:?ASP.NET Core environment is required}
+  ASPNETCORE_HTTP_PORTS: "8080"
+  AllowedHosts: ${APPOINTMENTCRM_DOMAIN:?domain is required};localhost;127.0.0.1
+  Cors__AllowedOrigins__0: https://${APPOINTMENTCRM_DOMAIN}
+  Identity__RequireSecureCookie: "true"
+  Identity__AccessTokenMinutes: ${APPOINTMENTCRM_ACCESS_TOKEN_MINUTES:-10}
+  Identity__RefreshTokenDays: ${APPOINTMENTCRM_REFRESH_TOKEN_DAYS:-7}
+  Identity__LoginPermitLimit: ${APPOINTMENTCRM_LOGIN_PERMIT_LIMIT:-10}
+  Identity__RefreshPermitLimit: ${APPOINTMENTCRM_REFRESH_PERMIT_LIMIT:-20}
+  Security__KnownProxies__0: ${APPOINTMENTCRM_WEB_INTERNAL_IP:?web proxy IP is required}
+  Security__ForwardLimit: "1"
+  Security__WritePermitLimit: ${APPOINTMENTCRM_WRITE_PERMIT_LIMIT:-60}
+  Security__WriteWindowSeconds: "60"
+  DataProtection__UseEphemeralKeys: "false"
+  DataProtection__KeysPath: /var/lib/appointment-crm/keys
+  DataProtection__CertificatePath: /run/certificates/data-protection.pfx
+  DashboardCache__Enabled: "true"
+  OpenTelemetry__Otlp__Endpoint: ${APPOINTMENTCRM_OTLP_ENDPOINT:-}
+
+x-api-runtime: &api-runtime
+  image: ${APPOINTMENTCRM_API_IMAGE:?immutable API image is required}
+  restart: unless-stopped
+  read_only: true
+  init: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  volumes:
+    - data-protection-keys:/var/lib/appointment-crm/keys
+  secrets:
+    - source: postgres_connection
+      target: ConnectionStrings__Postgres
+    - source: redis_connection
+      target: ConnectionStrings__Redis
+    - source: data_protection_password
+      target: DataProtection__CertificatePassword
+    - source: data_protection_certificate
+      target: /run/certificates/data-protection.pfx
+  networks: [application]
+
+services:
+  migrate:
+    <<: *api-runtime
+    restart: "no"
+    profiles: [release]
+    environment:
+      <<: *api-environment
+      DemoSeed__Enabled: "true"
+      DemoSeed__PublicMode: "true"
+      DemoSeed__ResetEnabled: "false"
+    secrets:
+      - source: postgres_connection
+        target: ConnectionStrings__Postgres
+      - source: redis_connection
+        target: ConnectionStrings__Redis
+      - source: demo_password
+        target: DemoSeed__Password
+      - source: data_protection_password
+        target: DataProtection__CertificatePassword
+      - source: data_protection_certificate
+        target: /run/certificates/data-protection.pfx
+    command: [--migrate]
+
+  demo-reset:
+    <<: *api-runtime
+    restart: "no"
+    profiles: [operations]
+    environment:
+      <<: *api-environment
+      DemoSeed__Enabled: "true"
+      DemoSeed__PublicMode: "true"
+      DemoSeed__ResetEnabled: "true"
+    secrets:
+      - source: postgres_connection
+        target: ConnectionStrings__Postgres
+      - source: redis_connection
+        target: ConnectionStrings__Redis
+      - source: demo_password
+        target: DemoSeed__Password
+      - source: data_protection_password
+        target: DataProtection__CertificatePassword
+      - source: data_protection_certificate
+        target: /run/certificates/data-protection.pfx
+    command: [--reset-demo]
+
+  api:
+    <<: *api-runtime
+    environment:
+      <<: *api-environment
+      DemoSeed__Enabled: "false"
+      DemoSeed__PublicMode: "false"
+      DemoSeed__ResetEnabled: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: ${APPOINTMENTCRM_API_CPU_LIMIT:-1.0}
+          memory: ${APPOINTMENTCRM_API_MEMORY_LIMIT:-768M}
+
+  web:
+    image: ${APPOINTMENTCRM_WEB_IMAGE:?immutable web image is required}
+    restart: unless-stopped
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      application:
+        ipv4_address: ${APPOINTMENTCRM_WEB_INTERNAL_IP}
+      edge:
+    deploy:
+      resources:
+        limits:
+          cpus: ${APPOINTMENTCRM_WEB_CPU_LIMIT:-0.5}
+          memory: ${APPOINTMENTCRM_WEB_MEMORY_LIMIT:-128M}
+
+  caddy:
+    image: ${APPOINTMENTCRM_CADDY_IMAGE:-caddy@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d}
+    restart: unless-stopped
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: [no-new-privileges:true]
+    environment:
+      APPOINTMENTCRM_DOMAIN: ${APPOINTMENTCRM_DOMAIN}
+      APPOINTMENTCRM_ACME_EMAIL: ${APPOINTMENTCRM_ACME_EMAIL:?ACME email is required}
+    ports:
+      - ${APPOINTMENTCRM_HTTP_BIND:-0.0.0.0:80}:80
+      - ${APPOINTMENTCRM_HTTPS_BIND:-0.0.0.0:443}:443
+      - ${APPOINTMENTCRM_HTTPS_BIND:-0.0.0.0:443}:443/udp
+    volumes:
+      - ./proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    depends_on:
+      web:
+        condition: service_healthy
+    networks: [edge]
+    deploy:
+      resources:
+        limits:
+          cpus: ${APPOINTMENTCRM_PROXY_CPU_LIMIT:-0.5}
+          memory: ${APPOINTMENTCRM_PROXY_MEMORY_LIMIT:-128M}
+
+volumes:
+  data-protection-keys:
+  caddy-data:
+  caddy-config:
+
+networks:
+  application:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${APPOINTMENTCRM_NETWORK_SUBNET:?private subnet is required}
+  edge:
+
+secrets:
+  postgres_connection:
+    file: ${APPOINTMENTCRM_SECRET_DIRECTORY:?secret directory is required}/postgres-connection
+  redis_connection:
+    file: ${APPOINTMENTCRM_SECRET_DIRECTORY}/redis-connection
+  demo_password:
+    file: ${APPOINTMENTCRM_SECRET_DIRECTORY}/demo-password
+  data_protection_password:
+    file: ${APPOINTMENTCRM_SECRET_DIRECTORY}/data-protection-password
+  data_protection_certificate:
+    file: ${APPOINTMENTCRM_SECRET_DIRECTORY}/data-protection.pfx

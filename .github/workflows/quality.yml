@@ -1,6 +1,7 @@
 name: Quality
 
 on:
+  workflow_call:
   push:
     branches: [main]
   pull_request:
@@ -106,6 +107,8 @@ jobs:
       - run: docker build --target quality --file deploy/web/Dockerfile .
       - run: docker build --file deploy/api/Dockerfile --tag appointment-crm-api:${{ github.sha }} .
       - run: docker build --file deploy/web/Dockerfile --tag appointment-crm-web:${{ github.sha }} .
+      - run: docker build --file deploy/ops/Dockerfile --tag appointment-crm-ops:${{ github.sha }} .
+      - run: scripts/verify-deployment.sh
       - name: Scan API image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -118,6 +121,14 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: appointment-crm-web:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          vuln-type: "os,library"
+          severity: "HIGH,CRITICAL"
+      - name: Scan database operations image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: appointment-crm-ops:${{ github.sha }}
           format: table
           exit-code: "1"
           vuln-type: "os,library"

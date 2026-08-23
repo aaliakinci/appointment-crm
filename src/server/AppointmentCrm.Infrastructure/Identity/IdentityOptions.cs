@@ -24,4 +24,8 @@ public sealed class DemoSeedOptions
     public bool Enabled { get; init; }
 
     public string Password { get; init; } = "123456";
+
+    public bool PublicMode { get; init; }
+
+    public bool ResetEnabled { get; init; }
 }

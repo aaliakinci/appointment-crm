@@ -259,6 +259,14 @@ public sealed class SchedulingTests : IClassFixture<ApiFactory>, IAsyncLifetime
         exception = await Assert.ThrowsAsync<PostgresException>(
             () => periodCommand.ExecuteNonQueryAsync());
         Assert.Equal("55000", exception.SqlState);
+
+        await using var scheduleCommand = new NpgsqlCommand(
+            "DELETE FROM weekly_schedules WHERE tenant_id = @tenantId AND employee_id IS NULL",
+            connection);
+        scheduleCommand.Parameters.AddWithValue("tenantId", AtlasTenantId);
+        exception = await Assert.ThrowsAsync<PostgresException>(
+            () => scheduleCommand.ExecuteNonQueryAsync());
+        Assert.Equal("55000", exception.SqlState);
     }
 
     [Fact]

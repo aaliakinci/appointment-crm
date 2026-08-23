@@ -1760,7 +1760,7 @@ namespace AppointmentCrm.Infrastructure.Persistence.Migrations
                         .WithMany("Versions")
                         .HasForeignKey("TenantId", "ScheduleId")
                         .HasPrincipalKey("TenantId", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("AppointmentCrm.Domain.Identity.TenantMembership", null)

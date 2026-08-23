@@ -7,6 +7,7 @@
 - React 18 and TypeScript 5.7 baseline required by `@lily_platform/lily_ui@0.1.0-alpha.2`
 - Redis for non-authoritative, replaceable cache data only
 - Docker Compose and GitHub Actions
+- Caddy TLS ingress and immutable-digest staging/production promotion
 
 ## Current capabilities
 
@@ -65,9 +66,9 @@ With .NET 10, Node.js 22, npm, Docker, and Compose available, run the local qual
 ./scripts/verify.sh
 ```
 
-The gate verifies locked restores, formatting, zero-warning builds, backend unit/integration tests against PostgreSQL, frontend lint/type checks/tests/build, and the committed lockfiles. GitHub Actions additionally executes an isolated Chromium E2E/accessibility suite and scans both runtime images. Authentication, session rotation, authorization, tenant isolation, fresh/upgrade migrations, and appointment concurrency are release-blocking.
+The gate verifies locked restores, formatting, zero-warning builds, backend unit/integration tests against PostgreSQL, frontend lint/type checks/tests/build, and the committed lockfiles. GitHub Actions additionally executes an isolated Chromium E2E/accessibility suite and scans the runtime images. Authentication, session rotation, authorization, tenant isolation, fresh/upgrade migrations, appointment concurrency, immutable image promotion, and public HTTPS smoke are release-blocking.
 
-Release operations and current product boundaries are recorded in [database release operations](docs/operations/database-release.md), the [release checklist](RELEASE_CHECKLIST.md), and [known limitations](KNOWN_LIMITATIONS.md).
+Release operations are recorded in the [deployment runbook](docs/operations/deployment.md), [database release operations](docs/operations/database-release.md), [backup/restore procedure](docs/operations/backup-restore.md), and [public demo operations](docs/operations/public-demo.md). Current product boundaries remain in [known limitations](KNOWN_LIMITATIONS.md).
 
 ## License
 

@@ -41,6 +41,8 @@ secrets.json
 *.p12
 *.key
 *.pem
+deploy/environments/*.env
+deploy/secrets/
 
 # Runtime and container state
 logs/

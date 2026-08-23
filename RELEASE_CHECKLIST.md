@@ -35,6 +35,7 @@ Use this checklist for `1.0.0-rc.1` and later candidates. A checked item represe
 - [ ] Database, Redis, telemetry, and signing credentials come from the approved secret store.
 - [ ] Rate limits, health probes, log redaction, telemetry destination, retention, and alert ownership are confirmed.
 - [ ] No real customer PII exists in demo data or screenshots.
+- [ ] Public demo exposes only the minimum-privilege receptionist credential; privileged demo credentials are not shared.
 
 ## Promotion and verification
 
@@ -44,3 +45,4 @@ Use this checklist for `1.0.0-rc.1` and later candidates. A checked item represe
 - [ ] The deployed version and image digests match the approved candidate.
 - [ ] Rollback decision window, operator, and communication channel are active.
 - [ ] Repository owner creates the commit, tag, push, and release only after all evidence is accepted.
+- [ ] External uptime probes and backup-age/restore-age alert ownership are active.

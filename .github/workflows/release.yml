@@ -1,0 +1,157 @@
+name: Release and deploy
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer release version without a leading v
+        required: true
+        type: string
+      schema_compatible_with_previous:
+        description: Previous application images can run against the migrated schema
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: appointment-crm-deployment-operations
+  cancel-in-progress: false
+
+jobs:
+  quality:
+    name: Reuse the release-blocking quality workflow
+    uses: ./.github/workflows/quality.yml
+
+  artifacts:
+    name: Build, scan, and publish immutable images
+    needs: quality
+    runs-on: ubuntu-latest
+    outputs:
+      api_image: ${{ steps.publish.outputs.api_image }}
+      web_image: ${{ steps.publish.outputs.web_image }}
+      ops_image: ${{ steps.publish.outputs.ops_image }}
+      version: ${{ steps.version.outputs.version }}
+      schema_compatible: ${{ steps.version.outputs.schema_compatible }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: version
+        name: Resolve release metadata
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+          REQUESTED_COMPATIBILITY: ${{ inputs.schema_compatible_with_previous }}
+        run: |
+          release_version="${REQUESTED_VERSION:-${GITHUB_REF_NAME#v}}"
+          printf '%s\n' "$release_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$'
+          compatibility="${REQUESTED_COMPATIBILITY:-true}"
+          {
+            echo "version=$release_version"
+            echo "schema_compatible=$compatibility"
+          } >> "$GITHUB_OUTPUT"
+      - name: Build each runtime artifact once
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker build --file deploy/api/Dockerfile \
+            --build-arg VERSION="$RELEASE_VERSION" \
+            --build-arg VCS_REF="$GITHUB_SHA" \
+            --tag "$repository/api:$GITHUB_SHA" .
+          docker build --file deploy/web/Dockerfile \
+            --build-arg VERSION="$RELEASE_VERSION" \
+            --build-arg VCS_REF="$GITHUB_SHA" \
+            --tag "$repository/web:$GITHUB_SHA" .
+          docker build --file deploy/ops/Dockerfile \
+            --build-arg VERSION="$RELEASE_VERSION" \
+            --build-arg VCS_REF="$GITHUB_SHA" \
+            --tag "$repository/ops:$GITHUB_SHA" .
+      - name: Scan API image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/api:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+      - name: Scan web image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/web:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+      - name: Scan operations image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}/ops:${{ github.sha }}
+          format: table
+          exit-code: "1"
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+      - id: publish
+        name: Publish and record registry digests
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          for artifact in api web ops; do
+            docker push "$repository/$artifact:$GITHUB_SHA"
+          done
+          {
+            echo "api_image=$(docker image inspect "$repository/api:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')"
+            echo "web_image=$(docker image inspect "$repository/web:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')"
+            echo "ops_image=$(docker image inspect "$repository/ops:$GITHUB_SHA" --format '{{index .RepoDigests 0}}')"
+          } >> "$GITHUB_OUTPUT"
+
+  staging:
+    name: Promote exact artifacts to staging
+    needs: artifacts
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Configure pinned SSH host identity
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      - name: Deploy and run HTTPS staging smoke
+        env:
+          APPOINTMENTCRM_DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          APPOINTMENTCRM_DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APPOINTMENTCRM_DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+        run: scripts/publish-release.sh staging "$GITHUB_SHA" "${{ needs.artifacts.outputs.api_image }}" "${{ needs.artifacts.outputs.web_image }}" "${{ needs.artifacts.outputs.ops_image }}" "${{ needs.artifacts.outputs.version }}" "${{ needs.artifacts.outputs.schema_compatible }}"
+
+  production:
+    name: Approve and promote the staging artifacts to production
+    needs: [artifacts, staging]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Configure pinned SSH host identity
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      - name: Deploy the exact staging digests and run HTTPS smoke
+        env:
+          APPOINTMENTCRM_DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          APPOINTMENTCRM_DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          APPOINTMENTCRM_DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+        run: scripts/publish-release.sh production "$GITHUB_SHA" "${{ needs.artifacts.outputs.api_image }}" "${{ needs.artifacts.outputs.web_image }}" "${{ needs.artifacts.outputs.ops_image }}" "${{ needs.artifacts.outputs.version }}" "${{ needs.artifacts.outputs.schema_compatible }}"

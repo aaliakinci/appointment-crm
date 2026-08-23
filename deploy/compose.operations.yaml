@@ -1,0 +1,44 @@
+name: appointment-crm-${APPOINTMENTCRM_ENVIRONMENT_SLUG:?environment slug is required}
+
+services:
+  backup:
+    image: ${APPOINTMENTCRM_OPS_IMAGE:?immutable operations image is required}
+    profiles: [operations]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      APPOINTMENTCRM_BACKUP_DIRECTORY: /backups
+    volumes:
+      - ${APPOINTMENTCRM_BACKUP_DIRECTORY:?backup directory is required}:/backups
+    secrets:
+      - source: maintenance_url
+        target: Postgres__MaintenanceUrl
+      - source: backup_passphrase
+        target: Backup__Passphrase
+    entrypoint: [appointment-crm-backup]
+
+  restore-rehearsal:
+    image: ${APPOINTMENTCRM_OPS_IMAGE:?immutable operations image is required}
+    profiles: [operations]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      APPOINTMENTCRM_BACKUP_FILE: /backups/${APPOINTMENTCRM_BACKUP_FILE:-not-selected}
+    volumes:
+      - ${APPOINTMENTCRM_BACKUP_DIRECTORY:?backup directory is required}:/backups:ro
+    secrets:
+      - source: restore_url
+        target: Postgres__RestoreUrl
+      - source: backup_passphrase
+        target: Backup__Passphrase
+    entrypoint: [appointment-crm-restore-rehearsal]
+
+secrets:
+  maintenance_url:
+    file: ${APPOINTMENTCRM_SECRET_DIRECTORY:?secret directory is required}/postgres-maintenance-url
+  restore_url:
+    file: ${APPOINTMENTCRM_RESTORE_URL_FILE:-/dev/null}
+  backup_passphrase:
+    file: ${APPOINTMENTCRM_SECRET_DIRECTORY}/backup-passphrase

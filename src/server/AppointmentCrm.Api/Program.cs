@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Claims;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading.RateLimiting;
 using AppointmentCrm.Api.Errors;
 using AppointmentCrm.Api.Health;
@@ -22,6 +23,7 @@ Activity.DefaultIdFormat = ActivityIdFormat.W3C;
 Activity.ForceDefaultIdFormat = true;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddKeyPerFile("/run/secrets", optional: true);
 var securityConfiguration = builder.Configuration
     .GetSection(SecurityOptions.SectionName)
     .Get<SecurityOptions>() ?? new SecurityOptions();
@@ -138,7 +140,16 @@ builder.Services.AddCors(options =>
     });
 });
 
-if (builder.Configuration.GetValue<bool>("DataProtection:UseEphemeralKeys"))
+var dataProtectionOptions = builder.Configuration
+    .GetSection(ApplicationDataProtectionOptions.SectionName)
+    .Get<ApplicationDataProtectionOptions>() ?? new ApplicationDataProtectionOptions();
+bool requiresPersistentDataProtection = !builder.Environment.IsDevelopment()
+    && !builder.Environment.IsEnvironment("Testing");
+ApplicationDataProtectionOptions.Validate(
+    dataProtectionOptions,
+    requiresPersistentDataProtection);
+
+if (dataProtectionOptions.UseEphemeralKeys)
 {
     // Local instances are disposable. A refresh cookie can recover a session after
     // restart without leaving unencrypted key material in the container filesystem.
@@ -160,8 +171,21 @@ if (builder.Configuration.GetValue<bool>("DataProtection:UseEphemeralKeys"))
 }
 else
 {
-    builder.Services.AddDataProtection()
+    var dataProtection = builder.Services.AddDataProtection()
         .SetApplicationName("AppointmentCrm");
+    if (!string.IsNullOrWhiteSpace(dataProtectionOptions.KeysPath))
+    {
+        dataProtection.PersistKeysToFileSystem(
+            new DirectoryInfo(dataProtectionOptions.KeysPath));
+    }
+
+    if (!string.IsNullOrWhiteSpace(dataProtectionOptions.CertificatePath))
+    {
+        X509Certificate2 certificate = X509CertificateLoader.LoadPkcs12FromFile(
+            dataProtectionOptions.CertificatePath,
+            dataProtectionOptions.CertificatePassword);
+        dataProtection.ProtectKeysWithCertificate(certificate);
+    }
 }
 
 var app = builder.Build();
@@ -169,6 +193,12 @@ var app = builder.Build();
 if (args.Contains("--migrate", StringComparer.Ordinal))
 {
     await MigrationRunner.RunAsync(app.Services);
+    return;
+}
+
+if (args.Contains("--reset-demo", StringComparer.Ordinal))
+{
+    await MigrationRunner.ResetDemoAsync(app.Services);
     return;
 }
 

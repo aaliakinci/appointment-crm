@@ -879,7 +879,7 @@ public sealed class AppointmentCrmDbContext : DbContext
                 .WithOne(version => version.Schedule)
                 .HasForeignKey(version => new { version.TenantId, version.ScheduleId })
                 .HasPrincipalKey(schedule => new { schedule.TenantId, schedule.Id })
-                .OnDelete(DeleteBehavior.Restrict);
+                .OnDelete(DeleteBehavior.Cascade);
             entity.Navigation(schedule => schedule.Versions)
                 .UsePropertyAccessMode(PropertyAccessMode.Field);
             entity.HasQueryFilter(schedule =>

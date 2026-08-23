@@ -53,4 +53,5 @@ npm run build
 
 cd "$repository_root"
 docker compose config --quiet
+scripts/verify-deployment.sh
 scripts/container-smoke.sh

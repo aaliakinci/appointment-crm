@@ -1,0 +1,66 @@
+name: Production operations
+
+on:
+  schedule:
+    - cron: "15 0 * * *"
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Operation to execute against the current production release
+        required: true
+        default: backup-and-reset
+        type: choice
+        options: [backup, reset-demo, backup-and-reset]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appointment-crm-deployment-operations
+  cancel-in-progress: false
+
+jobs:
+  operate:
+    runs-on: ubuntu-latest
+    environment: production-operations
+    steps:
+      - name: Configure pinned SSH host identity
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519" "$HOME/.ssh/known_hosts"
+      - name: Back up, then reset only the public demo tenant
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
+          REQUESTED_OPERATION: ${{ inputs.operation }}
+        run: |
+          operation="${REQUESTED_OPERATION:-backup-and-reset}"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" sh -s -- "${DEPLOY_ROOT:-/opt/appointment-crm}" "$operation" <<'REMOTE_OPERATION'
+          set -eu
+          deploy_root=$1
+          operation=$2
+          current="$deploy_root/environments/production/current"
+          runtime="$deploy_root/shared/production/runtime.env"
+          state="$deploy_root/environments/production/state"
+          release="$state/current.env"
+          test -d "$current" && test -f "$runtime" && test -f "$release"
+          case "$operation" in
+            backup)
+              "$current/deploy/release.sh" backup "$runtime" "$release" "$state"
+              ;;
+            reset-demo)
+              "$current/deploy/release.sh" reset-demo "$runtime" "$release" "$state"
+              ;;
+            backup-and-reset)
+              "$current/deploy/release.sh" backup "$runtime" "$release" "$state"
+              "$current/deploy/release.sh" reset-demo "$runtime" "$release" "$state"
+              ;;
+            *) exit 2 ;;
+          esac
+          REMOTE_OPERATION

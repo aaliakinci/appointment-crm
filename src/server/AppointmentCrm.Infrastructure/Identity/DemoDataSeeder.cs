@@ -16,6 +16,8 @@ internal sealed class DemoDataSeeder(
     IOptions<DemoSeedOptions> options,
     TimeProvider timeProvider)
 {
+    public const string PublicDemoEmail = "receptionist@demo.local";
+
     public static readonly Guid AtlasTenantId = Guid.Parse("10000000-0000-0000-0000-000000000001");
     public static readonly Guid NorthwindTenantId = Guid.Parse("10000000-0000-0000-0000-000000000002");
     public static readonly Guid OwnerUserId = Guid.Parse("20000000-0000-0000-0000-000000000001");
@@ -38,7 +40,7 @@ internal sealed class DemoDataSeeder(
         }
 
         var now = timeProvider.GetUtcNow();
-        var tenants = new[]
+        var tenants = new List<Tenant>
         {
             Tenant.Create(
                 AtlasTenantId,
@@ -47,14 +49,17 @@ internal sealed class DemoDataSeeder(
                 "Europe/Istanbul",
                 "TRY",
                 now),
-            Tenant.Create(
+        };
+        if (!options.Value.PublicMode)
+        {
+            tenants.Add(Tenant.Create(
                 NorthwindTenantId,
                 "Northwind Consulting",
                 "northwind-consulting",
                 "Europe/Istanbul",
                 "TRY",
-                now),
-        };
+                now));
+        }
         foreach (Tenant tenant in tenants)
         {
             if (!await dbContext.Tenants.IgnoreQueryFilters().AnyAsync(
@@ -65,14 +70,21 @@ internal sealed class DemoDataSeeder(
             }
         }
 
-        var users = new[]
+        var users = new List<User>
         {
             CreateUser(OwnerUserId, "owner@demo.local", "Demo Owner", now),
             CreateUser(ManagerUserId, "manager@demo.local", "Demo Manager", now),
             CreateUser(ReceptionistUserId, "receptionist@demo.local", "Demo Receptionist", now),
             CreateUser(EmployeeUserId, "employee@demo.local", "Demo Employee", now),
-            CreateUser(NorthwindOwnerUserId, "north.owner@demo.local", "Northwind Owner", now),
         };
+        if (!options.Value.PublicMode)
+        {
+            users.Add(CreateUser(
+                NorthwindOwnerUserId,
+                "north.owner@demo.local",
+                "Northwind Owner",
+                now));
+        }
         foreach (User user in users)
         {
             if (!await dbContext.Users.AnyAsync(
@@ -85,17 +97,11 @@ internal sealed class DemoDataSeeder(
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var memberships = new[]
+        var memberships = new List<TenantMembership>
         {
             Membership(
                 "30000000-0000-0000-0000-000000000001",
                 AtlasTenantId,
-                OwnerUserId,
-                TenantRoles.Owner,
-                now),
-            Membership(
-                "30000000-0000-0000-0000-000000000002",
-                NorthwindTenantId,
                 OwnerUserId,
                 TenantRoles.Owner,
                 now),
@@ -117,13 +123,22 @@ internal sealed class DemoDataSeeder(
                 EmployeeUserId,
                 TenantRoles.Employee,
                 now),
-            Membership(
+        };
+        if (!options.Value.PublicMode)
+        {
+            memberships.Add(Membership(
+                "30000000-0000-0000-0000-000000000002",
+                NorthwindTenantId,
+                OwnerUserId,
+                TenantRoles.Owner,
+                now));
+            memberships.Add(Membership(
                 "30000000-0000-0000-0000-000000000006",
                 NorthwindTenantId,
                 NorthwindOwnerUserId,
                 TenantRoles.Owner,
-                now),
-        };
+                now));
+        }
         foreach (TenantMembership membership in memberships)
         {
             bool exists = await dbContext.TenantMemberships
@@ -173,33 +188,36 @@ internal sealed class DemoDataSeeder(
                 "+90 555 010 40 50",
                 now),
             cancellationToken);
-        await SeedTenantMasterDataAsync(
-            NorthwindTenantId,
-            Customer.Create(
-                NorthwindCustomerId,
+        if (!options.Value.PublicMode)
+        {
+            await SeedTenantMasterDataAsync(
                 NorthwindTenantId,
-                "Jordan Lee",
-                "jordan.lee@example.test",
-                "+1 202 555 0142",
-                "Initial discovery call.",
-                now),
-            ServiceOffering.Create(
-                NorthwindServiceId,
-                NorthwindTenantId,
-                "Advisory session",
-                60,
-                2_500m,
-                "TRY",
-                now),
-            Employee.Create(
-                NorthwindEmployeeId,
-                NorthwindTenantId,
-                NorthwindOwnerUserId,
-                "Northwind Owner",
-                "north.owner@demo.local",
-                "+1 202 555 0188",
-                now),
-            cancellationToken);
+                Customer.Create(
+                    NorthwindCustomerId,
+                    NorthwindTenantId,
+                    "Jordan Lee",
+                    "jordan.lee@example.test",
+                    "+1 202 555 0142",
+                    "Initial discovery call.",
+                    now),
+                ServiceOffering.Create(
+                    NorthwindServiceId,
+                    NorthwindTenantId,
+                    "Advisory session",
+                    60,
+                    2_500m,
+                    "TRY",
+                    now),
+                Employee.Create(
+                    NorthwindEmployeeId,
+                    NorthwindTenantId,
+                    NorthwindOwnerUserId,
+                    "Northwind Owner",
+                    "north.owner@demo.local",
+                    "+1 202 555 0188",
+                    now),
+                cancellationToken);
+        }
     }
 
     private async Task SeedTenantMasterDataAsync(
@@ -274,8 +292,14 @@ internal sealed class DemoDataSeeder(
         Guid id,
         string email,
         string displayName,
-        DateTimeOffset now) =>
-        User.Create(id, email, displayName, passwordHashService.Hash(options.Value.Password), now);
+        DateTimeOffset now)
+    {
+        string password = !options.Value.PublicMode
+            || string.Equals(email, PublicDemoEmail, StringComparison.OrdinalIgnoreCase)
+                ? options.Value.Password
+                : Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+        return User.Create(id, email, displayName, passwordHashService.Hash(password), now);
+    }
 
     private static TenantMembership Membership(
         string id,

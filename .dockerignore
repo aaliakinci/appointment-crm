@@ -3,7 +3,14 @@
 .agents
 .codex
 .vscode
-.env
+**/.env
+**/.env.*
+**/*.pfx
+**/*.p12
+**/*.key
+**/*.pem
+deploy/environments/*.env
+deploy/secrets
 **/bin
 **/obj
 **/node_modules

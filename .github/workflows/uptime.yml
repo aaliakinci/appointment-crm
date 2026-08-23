@@ -1,0 +1,25 @@
+name: Public demo uptime
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: public-demo-uptime
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    if: ${{ vars.DEMO_BASE_URL != '' }}
+    runs-on: ubuntu-latest
+    environment: production-monitoring
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Probe liveness and readiness with a two-second latency threshold
+        env:
+          APPOINTMENTCRM_UPTIME_MAX_SECONDS: "2"
+        run: scripts/uptime-check.sh "${{ vars.DEMO_BASE_URL }}"
