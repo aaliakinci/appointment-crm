@@ -16,7 +16,8 @@
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "portfolio:capture": "playwright test --config playwright.portfolio.config.ts"
   },
   "dependencies": {
     "@lily_platform/lily_ui": "0.1.0-alpha.2",

@@ -63,6 +63,8 @@ Set `DEPLOY_ROOT` to `/opt/appointment-crm`. Define `DEMO_BASE_URL` as a reposit
 
 The release workflow builds API, web, and database-operations images once, scans those local images, pushes them to GHCR, records their registry digests, deploys the digests to staging, runs HTTPS smoke, pauses at the protected production Environment, and then deploys the identical digests. No image is rebuilt during promotion.
 
+For a tag release, a successful production promotion also creates or updates the GitHub Release. It publishes the prepared notes and attaches a JSON manifest with the source commit, database migration, and exact API/web/operations image digests. A manual workflow run deploys a version but does not create a GitHub Release.
+
 ## Release and migration sequence
 
 1. Confirm the quality workflow passed for the release commit.

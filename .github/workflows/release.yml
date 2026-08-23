@@ -155,3 +155,69 @@ jobs:
           APPOINTMENTCRM_DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           APPOINTMENTCRM_DEPLOY_ROOT: ${{ vars.DEPLOY_ROOT }}
         run: scripts/publish-release.sh production "$GITHUB_SHA" "${{ needs.artifacts.outputs.api_image }}" "${{ needs.artifacts.outputs.web_image }}" "${{ needs.artifacts.outputs.ops_image }}" "${{ needs.artifacts.outputs.version }}" "${{ needs.artifacts.outputs.schema_compatible }}"
+
+  github-release:
+    name: Publish release notes and artifact manifest
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [artifacts, production]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Create release notes and manifest
+        env:
+          API_IMAGE: ${{ needs.artifacts.outputs.api_image }}
+          OPS_IMAGE: ${{ needs.artifacts.outputs.ops_image }}
+          RELEASE_VERSION: ${{ needs.artifacts.outputs.version }}
+          WEB_IMAGE: ${{ needs.artifacts.outputs.web_image }}
+        run: |
+          latest_migration=$(find src/server/AppointmentCrm.Infrastructure/Persistence/Migrations \
+            -maxdepth 1 -type f -name '[0-9]*.cs' ! -name '*.Designer.cs' \
+            -printf '%f\n' | sort | tail -n 1 | sed 's/\.cs$//')
+          jq -n \
+            --arg version "$RELEASE_VERSION" \
+            --arg commit "$GITHUB_SHA" \
+            --arg migration "$latest_migration" \
+            --arg api "$API_IMAGE" \
+            --arg web "$WEB_IMAGE" \
+            --arg operations "$OPS_IMAGE" \
+            '{version: $version, commit: $commit, migration: $migration, images: {api: $api, web: $web, operations: $operations}}' \
+            > release-manifest.json
+          sed -n '/^### Product/,$p' RELEASE_NOTES.md \
+            | sed \
+              -e "s#](KNOWN_LIMITATIONS.md)#](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/KNOWN_LIMITATIONS.md)#" \
+              -e "s#](RELEASE_CHECKLIST.md)#](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_SHA/RELEASE_CHECKLIST.md)#" \
+            > release-body.md
+          {
+            echo
+            echo '### Published artifacts'
+            echo
+            echo "- Source commit: \`$GITHUB_SHA\`"
+            echo "- API image: \`$API_IMAGE\`"
+            echo "- Web image: \`$WEB_IMAGE\`"
+            echo "- Operations image: \`$OPS_IMAGE\`"
+            echo "- Database migration: \`$latest_migration\`"
+          } >> release-body.md
+      - name: Create or update the GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ needs.artifacts.outputs.version }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --title "Appointment CRM v$RELEASE_VERSION" \
+              --notes-file release-body.md
+          elif printf '%s\n' "$RELEASE_VERSION" | grep -q -- '-'; then
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --prerelease \
+              --title "Appointment CRM v$RELEASE_VERSION" \
+              --notes-file release-body.md
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --verify-tag \
+              --title "Appointment CRM v$RELEASE_VERSION" \
+              --notes-file release-body.md
+          fi
+          gh release upload "$GITHUB_REF_NAME" release-manifest.json --clobber
